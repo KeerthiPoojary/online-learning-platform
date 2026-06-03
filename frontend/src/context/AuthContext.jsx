@@ -29,13 +29,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
-        email,
-        password
-      });
-      
+const response = await axios.post(
+  `${process.env.REACT_APP_API_URL}/api/auth/login`,
+  {
+    email,
+    password
+  }
+);
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -49,21 +49,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (userData) => {
-    try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', userData);
-      const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
-      toast.success('Registration successful!');
-      return { success: true, role: user.role };
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
-      return { success: false };
-    }
-  };
+ const register = async (userData) => {
+  try {
+    const response = await axios.post(
+      `${process.env.REACT_APP_API_URL}/api/auth/register`,
+      userData
+    );
+
+    const { token, user } = response.data;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(user);
+    toast.success('Registration successful!');
+    return { success: true, role: user.role };
+  } catch (error) {
+    toast.error(error.response?.data?.message || 'Registration failed');
+    return { success: false };
+  }
+};
 
   const logout = () => {
     localStorage.removeItem('token');
