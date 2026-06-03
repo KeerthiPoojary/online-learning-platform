@@ -1,4 +1,13 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+    "experimentalServices": {
+        "frontend": {
+            "root": "frontend",
+            "routePrefix": "/",
+            "framework": "create-react-app"
+        },
+        "backend": {
+            "root": "backend",
+            "routePrefix": "/_/backend"
+        }
+    }
 }
