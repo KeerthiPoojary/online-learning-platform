@@ -21,7 +21,7 @@ const CreateCourse = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/categories');
+      const response = await axios.get('https://online-learning-platform-99mm.onrender.com/api/categories');
       setCategories(response.data.categories || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -54,7 +54,7 @@ const CreateCourse = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/courses', {
+      const response = await fetch('https://online-learning-platform-99mm.onrender.com/api/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

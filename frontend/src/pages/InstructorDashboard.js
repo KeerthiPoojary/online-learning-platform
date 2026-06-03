@@ -83,11 +83,11 @@ const InstructorDashboard = () => {
       
       const headers = { Authorization: `Bearer ${token}` };
       
-      const coursesRes = await axios.get('http://localhost:5000/api/instructor/courses', { headers });
+      const coursesRes = await axios.get('https://online-learning-platform-99mm.onrender.com/api/instructor/courses', { headers });
       setCourses(coursesRes.data.courses || []);
       
       try {
-        const statsRes = await axios.get('http://localhost:5000/api/instructor/stats', { headers });
+        const statsRes = await axios.get('https://online-learning-platform-99mm.onrender.com/api/instructor/stats', { headers });
         setStats(statsRes.data);
       } catch (statsError) {
         setStats({
@@ -110,7 +110,7 @@ const InstructorDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`http://localhost:5000/api/instructor/course/${courseId}/quizzes`, { headers });
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/instructor/course/${courseId}/quizzes`, { headers });
       
       const quizzesData = response.data.quizzes || [];
       console.log('Fetched quizzes:', quizzesData);
@@ -126,7 +126,7 @@ const InstructorDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`http://localhost:5000/api/instructor/course/${courseId}/assignments`, { headers });
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/instructor/course/${courseId}/assignments`, { headers });
       setAssignments(response.data.assignments || []);
     } catch (error) {
       console.error('Error fetching assignments:', error);
@@ -140,21 +140,21 @@ const InstructorDashboard = () => {
       const headers = { Authorization: `Bearer ${token}` };
       
       try {
-        const enrollmentsRes = await axios.get(`http://localhost:5000/api/instructor/course/${courseId}/enrollments`, { headers });
+        const enrollmentsRes = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/instructor/course/${courseId}/enrollments`, { headers });
         setCourseEnrollments(enrollmentsRes.data.enrollments || []);
       } catch (err) {
         setCourseEnrollments([]);
       }
       
       try {
-        const quizzesRes = await axios.get(`http://localhost:5000/api/instructor/course/${courseId}/quiz-results`, { headers });
+        const quizzesRes = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/instructor/course/${courseId}/quiz-results`, { headers });
         setQuizResults(quizzesRes.data.results || []);
       } catch (err) {
         setQuizResults([]);
       }
       
       try {
-        const assignmentsRes = await axios.get(`http://localhost:5000/api/instructor/course/${courseId}/assignment-submissions`, { headers });
+        const assignmentsRes = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/instructor/course/${courseId}/assignment-submissions`, { headers });
         setAssignmentSubmissions(assignmentsRes.data.submissions || []);
       } catch (err) {
         setAssignmentSubmissions([]);
@@ -230,10 +230,10 @@ const InstructorDashboard = () => {
       };
       
       if (editingQuiz) {
-        await axios.put(`http://localhost:5000/api/instructor/quizzes/${editingQuiz.id}`, quizData, { headers });
+        await axios.put(`https://online-learning-platform-99mm.onrender.com/api/instructor/quizzes/${editingQuiz.id}`, quizData, { headers });
         toast.success('Quiz updated successfully');
       } else {
-        await axios.post(`http://localhost:5000/api/instructor/courses/${currentCourseForModal.id}/quizzes`, quizData, { headers });
+        await axios.post(`https://online-learning-platform-99mm.onrender.com/api/instructor/courses/${currentCourseForModal.id}/quizzes`, quizData, { headers });
         toast.success('Quiz created successfully');
       }
       
@@ -260,10 +260,10 @@ const InstructorDashboard = () => {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingAssignment) {
-        await axios.put(`http://localhost:5000/api/instructor/assignments/${editingAssignment.id}`, assignmentForm, { headers });
+        await axios.put(`https://online-learning-platform-99mm.onrender.com/api/instructor/assignments/${editingAssignment.id}`, assignmentForm, { headers });
         toast.success('Assignment updated successfully');
       } else {
-        await axios.post(`http://localhost:5000/api/instructor/courses/${currentCourseForModal.id}/assignments`, assignmentForm, { headers });
+        await axios.post(`https://online-learning-platform-99mm.onrender.com/api/instructor/courses/${currentCourseForModal.id}/assignments`, assignmentForm, { headers });
         toast.success('Assignment created successfully');
       }
       
@@ -361,7 +361,7 @@ const InstructorDashboard = () => {
         setActionLoading(true);
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        await axios.delete(`http://localhost:5000/api/instructor/quizzes/${quizId}`, { headers });
+        await axios.delete(`https://online-learning-platform-99mm.onrender.com/api/instructor/quizzes/${quizId}`, { headers });
         toast.success('Quiz deleted');
         await fetchCourseQuizzes(currentCourseForModal.id);
       } catch (error) {
@@ -379,7 +379,7 @@ const InstructorDashboard = () => {
         setActionLoading(true);
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        await axios.delete(`http://localhost:5000/api/instructor/assignments/${assignmentId}`, { headers });
+        await axios.delete(`https://online-learning-platform-99mm.onrender.com/api/instructor/assignments/${assignmentId}`, { headers });
         toast.success('Assignment deleted');
         await fetchCourseAssignments(currentCourseForModal.id);
       } catch (error) {
@@ -402,7 +402,7 @@ const InstructorDashboard = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      await axios.put(`http://localhost:5000/api/instructor/assignments/grade/${submissionId}`, {
+      await axios.put(`https://online-learning-platform-99mm.onrender.com/api/instructor/assignments/grade/${submissionId}`, {
         grade: parseInt(gradeValue),
         feedback: feedbackValue
       }, { headers });
@@ -432,7 +432,7 @@ const InstructorDashboard = () => {
       setActionLoading(true);
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      await axios.delete(`http://localhost:5000/api/courses/${courseId}`, { headers });
+      await axios.delete(`https://online-learning-platform-99mm.onrender.com/api/courses/${courseId}`, { headers });
       toast.success('Course deleted successfully');
       await loadData();
     } catch (error) {

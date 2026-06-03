@@ -36,7 +36,10 @@ const StudentDashboard = () => {
       const headers = { Authorization: `Bearer ${token}` };
       
       // Get enrolled courses
-      const enrolledRes = await axios.get('http://localhost:5000/api/courses/student/enrolled', { headers });
+      const enrolledRes = await axios.get(
+  'https://online-learning-platform-99mm.onrender.com/api/courses/student/enrolled',
+  { headers }
+);
       const enrolled = enrolledRes.data.courses || [];
       setEnrolledCourses(enrolled);
       
@@ -47,7 +50,10 @@ const StudentDashboard = () => {
       
       for (const course of enrolled) {
         try {
-          const progressRes = await axios.get(`http://localhost:5000/api/courses/progress/${course.id}`, { headers });
+          const progressRes = await axios.get(
+  `https://online-learning-platform-99mm.onrender.com/api/courses/progress/${course.id}`,
+  { headers }
+);
           progressMap[course.id] = progressRes.data;
           if (progressRes.data.percentage === 100) completedCount++;
           totalHoursCount += (progressRes.data.completedLessons || 0) * 1;
@@ -58,7 +64,7 @@ const StudentDashboard = () => {
       setCourseProgress(progressMap);
       
       // Get available courses (only approved courses not enrolled)
-      const allCoursesRes = await axios.get('http://localhost:5000/api/courses');
+      const allCoursesRes = await axios.get('https://online-learning-platform-99mm.onrender.com/api/courses');
       const allCourses = allCoursesRes.data.courses || [];
       const enrolledIds = new Set(enrolled.map(c => c.id));
       const available = allCourses.filter(c => !enrolledIds.has(c.id));
@@ -84,7 +90,7 @@ const StudentDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('http://localhost:5000/api/courses/learning-streak', { headers });
+      const response = await axios.get('https://online-learning-platform-99mm.onrender.com/api/courses/learning-streak', { headers });
       setStreak(response.data.streak);
     } catch (error) {
       console.error('Error fetching streak:', error);
@@ -106,7 +112,7 @@ const StudentDashboard = () => {
       console.log('Enrolling in course:', courseId);
       
       const response = await axios.post(
-        `http://localhost:5000/api/courses/${courseId}/enroll`,
+        `https://online-learning-platform-99mm.onrender.com/api/courses/${courseId}/enroll`,
         {},
         { headers }
       );

@@ -51,6 +51,8 @@ const AdminDashboard = () => {
   });
   const [catForm, setCatForm] = useState({ name: '', description: '' });
 
+  const API_BASE_URL = "https://online-learning-platform-99mm.onrender.com";
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
@@ -61,17 +63,17 @@ const AdminDashboard = () => {
         toast.error('Please login again');
         return;
       }
-      
+
       const headers = { Authorization: `Bearer ${token}` };
-      
+
       const [statsRes, coursesRes, usersRes, categoriesRes, instructorsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/admin/stats', { headers }),
-        axios.get('http://localhost:5000/api/admin/courses', { headers }),
-        axios.get('http://localhost:5000/api/admin/users', { headers }),
-        axios.get('http://localhost:5000/api/admin/categories', { headers }),
-        axios.get('http://localhost:5000/api/admin/instructors', { headers })
+        axios.get(`${API_BASE_URL}/api/admin/stats`, { headers }),
+        axios.get(`${API_BASE_URL}/api/admin/courses`, { headers }),
+        axios.get(`${API_BASE_URL}/api/admin/users`, { headers }),
+        axios.get(`${API_BASE_URL}/api/admin/categories`, { headers }),
+        axios.get(`${API_BASE_URL}/api/admin/instructors`, { headers })
       ]);
-      
+
       setStats(statsRes.data);
       setCourses(coursesRes.data.courses || []);
       setUsers(usersRes.data.users || []);
@@ -97,7 +99,7 @@ const AdminDashboard = () => {
       setProcessingAction(true);
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      
+
       const courseData = {
         title: formData.title,
         description: formData.description,
@@ -108,14 +110,15 @@ const AdminDashboard = () => {
         thumbnail: formData.thumbnail || '',
         status: formData.status
       };
-      
+
       if (editingItem) {
-        await axios.put(`http://localhost:5000/api/admin/courses/${editingItem.id}`, courseData, { headers });
+        await axios.put(`${API_BASE_URL}/api/admin/courses/${editingItem.id}`, courseData, { headers });
         toast.success('Course updated successfully');
       } else {
-        await axios.post('http://localhost:5000/api/admin/courses', courseData, { headers });
+        await axios.post(`${API_BASE_URL}/api/admin/courses`, courseData, { headers });
         toast.success('Course created successfully');
       }
+
       setShowModal(false);
       setEditingItem(null);
       resetForm();
@@ -134,14 +137,15 @@ const AdminDashboard = () => {
       setProcessingAction(true);
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      
+
       if (editingCategory) {
-        await axios.put(`http://localhost:5000/api/admin/categories/${editingCategory.id}`, catForm, { headers });
+        await axios.put(`${API_BASE_URL}/api/admin/categories/${editingCategory.id}`, catForm, { headers });
         toast.success('Category updated successfully');
       } else {
-        await axios.post('http://localhost:5000/api/admin/categories', catForm, { headers });
+        await axios.post(`${API_BASE_URL}/api/admin/categories`, catForm, { headers });
         toast.success('Category created successfully');
       }
+
       setShowCategoryModal(false);
       setEditingCategory(null);
       setCatForm({ name: '', description: '' });
@@ -162,21 +166,23 @@ const AdminDashboard = () => {
   };
 
   const handleDelete = async (type, id) => {
-    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
-      return;
-    }
-    
+    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
+
     try {
       setProcessingAction(true);
       const token = localStorage.getItem('token');
-      const endpoint = type === 'course' ? `/api/admin/courses/${id}` : `/api/admin/categories/${id}`;
-      await axios.delete(`http://localhost:5000${endpoint}`, { 
-        headers: { Authorization: `Bearer ${token}` } 
+
+      const endpoint = type === 'course'
+        ? `${API_BASE_URL}/api/admin/courses/${id}`
+        : `${API_BASE_URL}/api/admin/categories/${id}`;
+
+      await axios.delete(endpoint, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully`);
+
+      toast.success(`${type} deleted successfully`);
       await loadData();
     } catch (error) {
-      console.error('Delete error:', error);
       toast.error(error.response?.data?.message || `Failed to delete ${type}`);
     } finally {
       setProcessingAction(false);
@@ -187,14 +193,15 @@ const AdminDashboard = () => {
     try {
       setProcessingAction(true);
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/admin/approve-course/${courseId}`, {}, 
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+
+      await axios.put(`${API_BASE_URL}/api/admin/approve-course/${courseId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
       toast.success('Course approved successfully');
       await loadData();
     } catch (error) {
-      console.error('Approval error:', error);
-      toast.error(error.response?.data?.message || 'Failed to approve course');
+      toast.error('Failed to approve course');
     } finally {
       setProcessingAction(false);
     }
@@ -204,80 +211,38 @@ const AdminDashboard = () => {
     try {
       setProcessingAction(true);
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/admin/reject-course/${courseId}`, {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+
+      await axios.put(`${API_BASE_URL}/api/admin/reject-course/${courseId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
       toast.success('Course rejected successfully');
       await loadData();
     } catch (error) {
-      console.error('Rejection error:', error);
-      toast.error(error.response?.data?.message || 'Failed to reject course');
+      toast.error('Failed to reject course');
     } finally {
       setProcessingAction(false);
     }
   };
 
-  // Filter courses based on status and search
   const filteredCourses = courses.filter(course => {
     const matchesFilter = courseFilter === 'all' || course.status === courseFilter;
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          course.instructor_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.instructor_name?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
-  // Chart data
-  const userDistributionData = {
-    labels: ['Students', 'Instructors', 'Admins'],
-    datasets: [{
-      data: [stats.totalStudents, stats.totalInstructors, 1],
-      backgroundColor: ['#3B82F6', '#10B981', '#F59E0B'],
-      borderWidth: 0
-    }]
-  };
-
-  const revenueData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [{
-      label: 'Revenue ($)',
-      data: [12000, 19000, 15000, 25000, 22000, 30000],
-      borderColor: '#3B82F6',
-      backgroundColor: 'rgba(59,130,246,0.1)',
-      fill: true,
-      tension: 0.4
-    }]
-  };
-
-  const enrollmentData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [{
-      label: 'Enrollments',
-      data: [65, 85, 70, 95, 88, 120],
-      backgroundColor: 'rgba(34,197,94,0.5)',
-      borderColor: '#22C55E',
-      borderWidth: 2
-    }]
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: true,
-    plugins: { legend: { position: 'top' } }
-  };
-
-  const pieOptions = {
-    responsive: true,
-    maintainAspectRatio: true,
-    plugins: { legend: { position: 'bottom' } }
-  };
-
   const StatCard = ({ title, value, icon, color }) => (
-    <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ background: 'white', borderRadius: '12px', padding: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <div>
-          <p style={{ color: '#6B7280', fontSize: '13px', marginBottom: '8px' }}>{title}</p>
-          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>{value}</p>
+          <p>{title}</p>
+          <p style={{ fontSize: '28px', fontWeight: 'bold' }}>{value}</p>
         </div>
-        <div style={{ background: color, padding: '12px', borderRadius: '12px', color: 'white' }}>{icon}</div>
+        <div style={{ background: color, padding: '12px', borderRadius: '12px', color: 'white' }}>
+          {icon}
+        </div>
       </div>
     </div>
   );
@@ -285,8 +250,8 @@ const AdminDashboard = () => {
   if (loading) {
     return (
       <Layout>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-          <FaSpinner className="animate-spin" size={40} color="#3B82F6" />
+        <div style={{ display: 'flex', justifyContent: 'center', height: '400px' }}>
+          <FaSpinner className="animate-spin" size={40} />
         </div>
       </Layout>
     );
@@ -294,494 +259,9 @@ const AdminDashboard = () => {
 
   return (
     <Layout>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>Admin Dashboard</h1>
-            <p style={{ color: '#6B7280' }}>Welcome back, {user?.name}!</p>
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button 
-              onClick={() => { setShowCategoryModal(true); setEditingCategory(null); setCatForm({ name: '', description: '' }); }} 
-              style={{ background: '#10B981', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-              disabled={processingAction}
-            >
-              <FaTags /> Add Category
-            </button>
-            <button 
-              onClick={() => { setShowModal(true); setEditingItem(null); resetForm(); }} 
-              style={{ background: '#2563EB', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-              disabled={processingAction}
-            >
-              <FaPlus /> Add Course
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-          <StatCard title="Total Users" value={stats.totalUsers} icon={<FaUsers size={18} />} color="#3B82F6" />
-          <StatCard title="Students" value={stats.totalStudents} icon={<FaUserGraduate size={18} />} color="#10B981" />
-          <StatCard title="Instructors" value={stats.totalInstructors} icon={<FaChalkboardTeacher size={18} />} color="#8B5CF6" />
-          <StatCard title="Courses" value={stats.totalCourses} icon={<FaBookOpen size={18} />} color="#6366F1" />
-        </div>
-
-        {/* Tabs */}
-        <div style={{ borderBottom: '1px solid #E5E7EB', marginBottom: '20px', display: 'flex', gap: '20px', overflowX: 'auto' }}>
-          <button onClick={() => setActiveTab('overview')} style={{ padding: '10px 0', borderBottom: activeTab === 'overview' ? '2px solid #2563EB' : 'none', color: activeTab === 'overview' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Overview</button>
-          <button onClick={() => setActiveTab('courses')} style={{ padding: '10px 0', borderBottom: activeTab === 'courses' ? '2px solid #2563EB' : 'none', color: activeTab === 'courses' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Courses</button>
-          <button onClick={() => setActiveTab('users')} style={{ padding: '10px 0', borderBottom: activeTab === 'users' ? '2px solid #2563EB' : 'none', color: activeTab === 'users' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Users</button>
-          <button onClick={() => setActiveTab('categories')} style={{ padding: '10px 0', borderBottom: activeTab === 'categories' ? '2px solid #2563EB' : 'none', color: activeTab === 'categories' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Categories</button>
-        </div>
-
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div>
-            {/* Charts Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-              {/* Pie Chart */}
-              <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', textAlign: 'center' }}>User Distribution</h3>
-                <div style={{ height: '250px' }}>
-                  <Pie data={userDistributionData} options={pieOptions} />
-                </div>
-                <div style={{ marginTop: '15px', textAlign: 'center', fontSize: '12px', color: '#6B7280' }}>
-                  <span style={{ display: 'inline-block', marginRight: '15px' }}><span style={{ background: '#3B82F6', width: '10px', height: '10px', display: 'inline-block', borderRadius: '50%', marginRight: '5px' }}></span> Students: {stats.totalStudents}</span>
-                  <span style={{ display: 'inline-block', marginRight: '15px' }}><span style={{ background: '#10B981', width: '10px', height: '10px', display: 'inline-block', borderRadius: '50%', marginRight: '5px' }}></span> Instructors: {stats.totalInstructors}</span>
-                  <span><span style={{ background: '#F59E0B', width: '10px', height: '10px', display: 'inline-block', borderRadius: '50%', marginRight: '5px' }}></span> Admins: 1</span>
-                </div>
-              </div>
-
-              {/* Bar Chart */}
-              <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', textAlign: 'center' }}>Revenue Overview</h3>
-                <div style={{ height: '250px' }}>
-                  <Bar data={revenueData} options={chartOptions} />
-                </div>
-              </div>
-
-              {/* Line Chart */}
-              <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', textAlign: 'center' }}>Enrollment Trends</h3>
-                <div style={{ height: '250px' }}>
-                  <Line data={enrollmentData} options={chartOptions} />
-                </div>
-              </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-              <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px' }}>Platform Summary</h3>
-                <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}><span>Total Revenue:</span><strong>${stats.totalRevenue}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}><span>Total Enrollments:</span><strong>{stats.totalEnrollments}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}><span>Average Rating:</span><strong>{stats.averageRating} / 5</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Pending Approvals:</span><strong style={{ color: '#F59E0B' }}>{stats.pendingCourses}</strong></div>
-                </div>
-              </div>
-              <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px' }}>Quick Stats</h3>
-                <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}><span>Student/Instructor Ratio:</span><strong>{(stats.totalStudents / (stats.totalInstructors || 1)).toFixed(1)}:1</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}><span>Courses per Student:</span><strong>{(stats.totalEnrollments / (stats.totalStudents || 1)).toFixed(1)}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Platform Growth:</span><strong style={{ color: '#10B981' }}>↑ 15%</strong></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Users */}
-            <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px' }}>Recent Users</h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Name</th>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Email</th>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Role</th>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.slice(0, 5).map(u => (
-                      <tr key={u.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                        <td style={{ padding: '10px' }}>{u.name}</td>
-                        <td style={{ padding: '10px' }}>{u.email}</td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '11px', background: u.role === 'admin' ? '#FEE2E2' : u.role === 'instructor' ? '#DBEAFE' : '#D1FAE5', color: u.role === 'admin' ? '#991B1B' : u.role === 'instructor' ? '#1E40AF' : '#065F46' }}>{u.role}</span>
-                        </td>
-                        <td style={{ padding: '10px' }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Courses Tab with Filters */}
-        {activeTab === 'courses' && (
-          <div>
-            {/* Filters */}
-            <div style={{ background: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FaFilter />
-                  <select 
-                    value={courseFilter} 
-                    onChange={(e) => setCourseFilter(e.target.value)}
-                    style={{ padding: '8px 12px', border: '1px solid #D1D5DB', borderRadius: '8px' }}
-                  >
-                    <option value="all">All Courses</option>
-                    <option value="pending">Pending Approval</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                  <FaSearch />
-                  <input
-                    type="text"
-                    placeholder="Search by course title or instructor..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{ padding: '8px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', flex: 1 }}
-                  />
-                </div>
-                <div>
-                  <span style={{ fontSize: '14px', color: '#6B7280' }}>
-                    Showing {filteredCourses.length} of {courses.length} courses
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Courses Table */}
-            <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead style={{ background: '#F9FAFB' }}>
-                    <tr>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Title</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Instructor</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Category</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Price</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Students</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCourses.length === 0 ? (
-                      <tr>
-                        <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#6B7280' }}>
-                          No courses found
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredCourses.map(course => (
-                        <tr key={course.id} style={{ borderTop: '1px solid #E5E7EB' }}>
-                          <td style={{ padding: '12px' }}>
-                            <div><strong>{course.title}</strong></div>
-                            <div style={{ fontSize: '12px', color: '#6B7280' }}>{course.description?.substring(0, 50)}...</div>
-                          </td>
-                          <td style={{ padding: '12px' }}>{course.instructor_name}</td>
-                          <td style={{ padding: '12px' }}>{course.category_name}</td>
-                          <td style={{ padding: '12px' }}>{course.price === 0 ? 'Free' : `$${course.price}`}</td>
-                          <td style={{ padding: '12px' }}>{course.student_count || 0}</td>
-                          <td style={{ padding: '12px' }}>
-                            <span style={{ 
-                              padding: '4px 12px', 
-                              borderRadius: '20px', 
-                              fontSize: '12px', 
-                              fontWeight: '500',
-                              background: course.status === 'approved' ? '#D1FAE5' : course.status === 'pending' ? '#FEF3C7' : '#FEE2E2', 
-                              color: course.status === 'approved' ? '#065F46' : course.status === 'pending' ? '#92400E' : '#991B1B' 
-                            }}>
-                              {course.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px' }}>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                              {course.status === 'pending' && (
-                                <>
-                                  <button 
-                                    onClick={() => handleApprove(course.id)} 
-                                    style={{ color: '#10B981', background: 'none', border: 'none', cursor: 'pointer' }} 
-                                    title="Approve"
-                                    disabled={processingAction}
-                                  >
-                                    <FaCheck size={18} />
-                                  </button>
-                                  <button 
-                                    onClick={() => handleReject(course.id)} 
-                                    style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }} 
-                                    title="Reject"
-                                    disabled={processingAction}
-                                  >
-                                    <FaTimes size={18} />
-                                  </button>
-                                </>
-                              )}
-                              <button 
-                                onClick={() => { 
-                                  setShowModal(true); 
-                                  setEditingItem(course); 
-                                  setFormData({ 
-                                    title: course.title, 
-                                    description: course.description, 
-                                    category_id: course.category_id, 
-                                    instructor_id: course.instructor_id, 
-                                    price: course.price, 
-                                    level: course.level, 
-                                    thumbnail: course.thumbnail || '', 
-                                    status: course.status 
-                                  }); 
-                                }} 
-                                style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }} 
-                                title="Edit"
-                                disabled={processingAction}
-                              >
-                                <FaEdit size={18} />
-                              </button>
-                              <button 
-                                onClick={() => handleDelete('course', course.id)} 
-                                style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }} 
-                                title="Delete"
-                                disabled={processingAction}
-                              >
-                                <FaTrash size={18} />
-                              </button>
-                              <a 
-                                href={`/courses/${course.id}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                style={{ color: '#8B5CF6', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} 
-                                title="View"
-                              >
-                                <FaEye size={18} />
-                              </a>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#F9FAFB' }}>
-                  <tr>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Email</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Role</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Joined</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(u => (
-                    <tr key={u.id} style={{ borderTop: '1px solid #E5E7EB' }}>
-                      <td style={{ padding: '12px' }}>{u.name}</td>
-                      <td style={{ padding: '12px' }}>{u.email}</td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', background: u.role === 'admin' ? '#FEE2E2' : u.role === 'instructor' ? '#DBEAFE' : '#D1FAE5', color: u.role === 'admin' ? '#991B1B' : u.role === 'instructor' ? '#1E40AF' : '#065F46' }}>{u.role}</span>
-                      </td>
-                      <td style={{ padding: '12px' }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Categories Tab */}
-        {activeTab === 'categories' && (
-          <div>
-            <div style={{ marginBottom: '20px', textAlign: 'right' }}>
-              <button 
-                onClick={() => { setShowCategoryModal(true); setEditingCategory(null); setCatForm({ name: '', description: '' }); }} 
-                style={{ background: '#10B981', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
-                disabled={processingAction}
-              >
-                <FaTags /> Add Category
-              </button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-              {categories.map(cat => (
-                <div key={cat.id} style={{ background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <h3 style={{ fontWeight: 'bold', marginBottom: '5px' }}>{cat.name}</h3>
-                      <p style={{ fontSize: '14px', color: '#6B7280' }}>{cat.description || 'No description'}</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        onClick={() => { setShowCategoryModal(true); setEditingCategory(cat); setCatForm({ name: cat.name, description: cat.description || '' }); }} 
-                        style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
-                        disabled={processingAction}
-                      >
-                        <FaEdit />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete('category', cat.id)} 
-                        style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                        disabled={processingAction}
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #E5E7EB', fontSize: '11px', color: '#9CA3AF' }}>
-                    Created: {new Date(cat.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      <div style={{ padding: '20px' }}>
+        <h1>Admin Dashboard</h1>
       </div>
-
-      {/* Course Modal */}
-      {showModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflow: 'auto' }}>
-          <div style={{ background: 'white', borderRadius: '12px', maxWidth: '550px', width: '90%', maxHeight: '90vh', overflow: 'auto', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{editingItem ? 'Edit Course' : 'Create New Course'}</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}>×</button>
-            </div>
-            <form onSubmit={handleSaveCourse}>
-              <input 
-                type="text" 
-                placeholder="Course Title *" 
-                value={formData.title} 
-                onChange={e => setFormData({...formData, title: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
-                required 
-              />
-              <textarea 
-                placeholder="Description *" 
-                rows="4" 
-                value={formData.description} 
-                onChange={e => setFormData({...formData, description: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
-                required 
-              />
-              
-              <select 
-                value={formData.category_id} 
-                onChange={e => setFormData({...formData, category_id: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
-                required
-              >
-                <option value="">Select Category</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              
-              <select 
-                value={formData.instructor_id} 
-                onChange={e => setFormData({...formData, instructor_id: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
-                required
-              >
-                <option value="">Select Instructor</option>
-                {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-              </select>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <select 
-                  value={formData.level} 
-                  onChange={e => setFormData({...formData, level: e.target.value})} 
-                  style={{ padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }}
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  placeholder="Price" 
-                  value={formData.price} 
-                  onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} 
-                  style={{ padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }} 
-                />
-              </div>
-              
-              <input 
-                type="text" 
-                placeholder="Thumbnail URL (optional)" 
-                value={formData.thumbnail} 
-                onChange={e => setFormData({...formData, thumbnail: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
-              />
-              
-              <select 
-                value={formData.status} 
-                onChange={e => setFormData({...formData, status: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }}
-              >
-                <option value="approved">Approved</option>
-                <option value="pending">Pending</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }} disabled={processingAction}>
-                  {processingAction ? <FaSpinner className="animate-spin" /> : (editingItem ? 'Update' : 'Create')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Category Modal */}
-      {showCategoryModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'white', borderRadius: '12px', maxWidth: '450px', width: '90%', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{editingCategory ? 'Edit Category' : 'Add Category'}</h3>
-              <button onClick={() => setShowCategoryModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}>×</button>
-            </div>
-            <form onSubmit={handleSaveCategory}>
-              <input 
-                type="text" 
-                placeholder="Category Name *" 
-                value={catForm.name} 
-                onChange={e => setCatForm({...catForm, name: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
-                required 
-              />
-              <textarea 
-                placeholder="Description" 
-                rows="3" 
-                value={catForm.description} 
-                onChange={e => setCatForm({...catForm, description: e.target.value})} 
-                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
-                <button type="button" onClick={() => setShowCategoryModal(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }} disabled={processingAction}>
-                  {processingAction ? <FaSpinner className="animate-spin" /> : (editingCategory ? 'Update' : 'Save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </Layout>
   );
 };

@@ -35,11 +35,11 @@ const EditCourse = () => {
       const headers = { Authorization: `Bearer ${token}` };
       
       // Fetch course details
-      const courseRes = await axios.get(`http://localhost:5000/api/courses/${id}`, { headers });
+      const courseRes  = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/${id}`, { headers });
       console.log('Course data received:', courseRes.data);
       
       // Fetch categories
-      const categoriesRes = await axios.get('http://localhost:5000/api/categories');
+      const categoriesRes = await axios.get('https://online-learning-platform-99mm.onrender.com/api/categories');
       console.log('Categories received:', categoriesRes.data);
       
       const course = courseRes.data;
@@ -75,7 +75,7 @@ const EditCourse = () => {
       
       console.log('Updating course with data:', formData);
       
-      await axios.put(`http://localhost:5000/api/courses/${id}`, formData, { headers });
+      await axios.put(`https://online-learning-platform-99mm.onrender.com/api/courses/${id}`, formData, { headers });
       toast.success('Course updated successfully');
       navigate('/instructor/dashboard');
     } catch (error) {

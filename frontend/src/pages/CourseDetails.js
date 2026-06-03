@@ -22,7 +22,7 @@ const CourseDetails = () => {
 
   const fetchCourse = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/courses/${id}`);
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/${id}`);
       setCourse(response.data);
     } catch (error) {
       console.error('Error fetching course:', error);
@@ -38,7 +38,7 @@ const CourseDetails = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`http://localhost:5000/api/courses/${id}/check-enrollment`, { headers });
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/${id}/check-enrollment`, { headers });
       setIsEnrolled(response.data.enrolled);
     } catch (error) {
       console.error('Error checking enrollment:', error);
@@ -58,11 +58,11 @@ const CourseDetails = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      const response = await axios.post(
-        `http://localhost:5000/api/courses/${id}/enroll`,
-        {},
-        { headers }
-      );
+      await axios.post(
+  `https://online-learning-platform-99mm.onrender.com/api/courses/${id}/enroll`,
+  {},
+  { headers }
+);
       
       if (response.data.message) {
         toast.success(`Successfully enrolled in "${course?.title}"!`);

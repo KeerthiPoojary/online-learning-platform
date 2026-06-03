@@ -13,7 +13,7 @@ const CourseDetailsPage = () => {
 
   const fetchCourseDetails = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/courses/${id}`);
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/${id}`);
       setCourse(response.data);
     } catch (error) {
       console.error('Error fetching course:', error);

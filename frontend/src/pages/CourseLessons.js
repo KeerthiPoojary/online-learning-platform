@@ -38,11 +38,17 @@ const CourseLessons = () => {
       const headers = { Authorization: `Bearer ${token}` };
       
       // Fetch course details
-      const courseRes = await axios.get(`http://localhost:5000/api/courses/${courseId}`, { headers });
+      const courseRes = await axios.get(
+  `https://online-learning-platform-99mm.onrender.com/api/courses/${courseId}`,
+  { headers }
+);
       setCourse(courseRes.data);
       
       // Fetch lessons - CORRECT ENDPOINT
-      const lessonsRes = await axios.get(`http://localhost:5000/api/courses/${courseId}/lessons`, { headers });
+      const lessonsRes = await axios.get(
+  `https://online-learning-platform-99mm.onrender.com/api/courses/${courseId}/lessons`,
+  { headers }
+);
       setLessons(lessonsRes.data.lessons || []);
       
     } catch (error) {
@@ -108,10 +114,18 @@ const CourseLessons = () => {
       let response;
       // CORRECT ENDPOINT - using /api/courses/lessons
       if (editingLesson) {
-        response = await axios.put(`http://localhost:5000/api/courses/lessons/${editingLesson.id}`, lessonData, { headers });
+        response = await axios.put(
+  `https://online-learning-platform-99mm.onrender.com/api/courses/lessons/${editingLesson.id}`,
+  lessonData,
+  { headers }
+);
         toast.success('Lesson updated successfully');
       } else {
-        response = await axios.post('http://localhost:5000/api/courses/lessons', lessonData, { headers });
+        response = await axios.post(
+  'https://online-learning-platform-99mm.onrender.com/api/courses/lessons',
+  lessonData,
+  { headers }
+);
         toast.success('Lesson added successfully');
       }
       
@@ -135,7 +149,10 @@ const CourseLessons = () => {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
         // CORRECT ENDPOINT
-        await axios.delete(`http://localhost:5000/api/courses/lessons/${lessonId}`, { headers });
+        await axios.delete(
+  `https://online-learning-platform-99mm.onrender.com/api/courses/lessons/${lessonId}`,
+  { headers }
+);
         toast.success('Lesson deleted successfully');
         fetchCourseAndLessons();
       } catch (error) {

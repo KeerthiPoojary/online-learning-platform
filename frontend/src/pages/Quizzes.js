@@ -40,7 +40,7 @@ const Quizzes = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('http://localhost:5000/api/instructor/courses', { headers });
+      const response = await axios.get('https://online-learning-platform-99mm.onrender.com/api/instructor/courses', { headers });
       setCourses(response.data.courses || []);
     } catch (error) {
       console.error('Error fetching courses:', error);
@@ -52,7 +52,7 @@ const Quizzes = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('http://localhost:5000/api/quizzes/instructor', { headers });
+      const response = https://online-learning-platform-99mm.onrender.com/api/quizzes/instructor
       setQuizzes(response.data.quizzes || []);
     } catch (error) {
       console.error('Error fetching quizzes:', error);
@@ -66,7 +66,7 @@ const Quizzes = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`http://localhost:5000/api/quizzes/${quizId}`, { headers });
+      const response = https://online-learning-platform-99mm.onrender.com/api/quizzes/${quizId}
       return response.data;
     } catch (error) {
       console.error('Error fetching quiz details:', error);
@@ -201,10 +201,10 @@ const Quizzes = () => {
       console.log('Saving quiz:', quizData);
       
       if (editingQuiz) {
-        await axios.put(`http://localhost:5000/api/quizzes/${editingQuiz.id}`, quizData, { headers });
+        await axios.put(`https://online-learning-platform-99mm.onrender.com/api/quizzes/${editingQuiz.id}`, quizData, { headers });
         toast.success('Quiz updated successfully');
       } else {
-        await axios.post('http://localhost:5000/api/quizzes/create', quizData, { headers });
+        await axios.post('https://online-learning-platform-99mm.onrender.com/api/quizzes/create', quizData, { headers });
         toast.success('Quiz created successfully');
       }
       
@@ -229,7 +229,7 @@ const Quizzes = () => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        await axios.delete(`http://localhost:5000/api/quizzes/${id}`, { headers });
+        await axios.delete(`https://online-learning-platform-99mm.onrender.com/api/quizzes/${id}`, { headers });
         toast.success('Quiz deleted');
         fetchQuizzes();
       } catch (error) {

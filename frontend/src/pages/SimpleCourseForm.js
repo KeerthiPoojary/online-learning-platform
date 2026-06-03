@@ -26,9 +26,13 @@ const SimpleCourseForm = () => {
     setSaving(true);
     
     try {
-      const response = await axios.post('http://localhost:5000/api/courses', courseData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.post(
+  'https://online-learning-platform-99mm.onrender.com/api/courses',
+  courseData,
+  {
+    headers: { Authorization: `Bearer ${token}` }
+  }
+);
       console.log('Response:', response.data);
       toast.success('Course created!');
       setTitle('');

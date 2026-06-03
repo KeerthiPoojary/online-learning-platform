@@ -39,17 +39,17 @@ const CourseLearn = () => {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
-      const courseRes = await axios.get(`http://localhost:5000/api/courses/${id}`);
+      const courseRes = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/${id}`);
       setCourse(courseRes.data);
       
-      const lessonsRes = await axios.get(`http://localhost:5000/api/courses/${id}/lessons`);
+      const lessonsRes = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/${id}/lessons`);
       setLessons(lessonsRes.data.lessons || []);
       
       if (token) {
-        const quizzesRes = await axios.get(`http://localhost:5000/api/quizzes/course/${id}`, { headers });
+        const quizzesRes = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/quizzes/course/${id}`, { headers });
         setQuizzes(quizzesRes.data.quizzes || []);
         
-        const assignmentsRes = await axios.get(`http://localhost:5000/api/assignments/course/${id}`, { headers });
+        const assignmentsRes = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/assignments/course/${id}`, { headers });
         setAssignments(assignmentsRes.data.assignments || []);
       }
       
@@ -66,7 +66,8 @@ const CourseLearn = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`http://localhost:5000/api/courses/progress/${id}`, { headers });
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/progress/${id}/details`,{ headers }
+);
       setCourseProgress(response.data);
     } catch (error) {
       console.error('Error fetching progress:', error);
@@ -78,7 +79,8 @@ const CourseLearn = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`http://localhost:5000/api/courses/progress/${id}/details`, { headers });
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/courses/progress/${id}/details`,{ headers }
+);
       
       const completedMap = {};
       (response.data.completedLessons || []).forEach(lesson => {
@@ -97,7 +99,7 @@ const CourseLearn = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      await axios.post(`http://localhost:5000/api/courses/lesson/${lessonId}/complete`, {}, { headers });
+      await axios.post(`https://online-learning-platform-99mm.onrender.com/api/courses/lesson/${lessonId}/complete`, {}, { headers });
       
       setCompletedLessons(prev => ({ ...prev, [lessonId]: true }));
       toast.success('Lesson marked as completed!');
@@ -164,7 +166,7 @@ const CourseLearn = () => {
       console.log('Submitting answers:', formattedAnswers);
       
       const response = await axios.post(
-        `http://localhost:5000/api/quizzes/${currentQuiz.id}/submit`,
+        `https://online-learning-platform-99mm.onrender.com/api/quizzes/${currentQuiz.id}/submit`,
         { answers: formattedAnswers },
         { headers }
       );
@@ -184,7 +186,10 @@ const CourseLearn = () => {
         });
         toast.success(`Quiz submitted! You scored ${response.data.score}%`);
         
-        const quizzesRes = await axios.get(`http://localhost:5000/api/quizzes/course/${id}`, { headers });
+        const quizzesRes = await axios.get(
+  `https://online-learning-platform-99mm.onrender.com/api/quizzes/course/${id}`,
+  { headers }
+);
         setQuizzes(quizzesRes.data.quizzes || []);
       } else {
         toast.error(response.data.message || 'Failed to submit quiz');
@@ -206,7 +211,8 @@ const CourseLearn = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`http://localhost:5000/api/quizzes/take/${quiz.id}`, { headers });
+      const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/quizzes/take/${quiz.id}`,{ headers }
+);
       
       if (response.status === 403) {
         toast.error(response.data.message);
@@ -247,15 +253,21 @@ const CourseLearn = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      await axios.post('http://localhost:5000/api/assignments/submit', {
-        assignment_id: assignmentId,
-        submission_text: submissionText
-      }, { headers });
+      await axios.post('https://online-learning-platform-99mm.onrender.com/api/assignments/submit',
+  {
+    assignment_id: assignmentId,
+    submission_text: submissionText
+  },
+  { headers }
+);
       
       toast.success('Assignment submitted successfully!');
       setSubmissionText('');
       
-      const assignmentsRes = await axios.get(`http://localhost:5000/api/assignments/course/${id}`, { headers });
+      const assignmentsRes = await axios.get(
+  `https://online-learning-platform-99mm.onrender.com/api/assignments/course/${id}`,
+  { headers }
+);
       setAssignments(assignmentsRes.data.assignments || []);
       
     } catch (error) {

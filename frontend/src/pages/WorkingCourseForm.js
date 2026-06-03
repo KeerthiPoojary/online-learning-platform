@@ -18,7 +18,7 @@ const WorkingCourseForm = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/courses', {
+      const response = fetch('https://online-learning-platform-99mm.onrender.com/api/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

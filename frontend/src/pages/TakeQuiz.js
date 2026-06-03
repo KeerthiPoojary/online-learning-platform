@@ -36,7 +36,7 @@ const TakeQuiz = () => {
             console.log('Fetching quiz with ID:', quizId);
             console.log('Token:', token);
             
-            const response = await axios.get(`http://localhost:5000/api/quizzes/take/${quizId}`, {
+            const response = await axios.get(`https://online-learning-platform-99mm.onrender.com/api/quizzes/take/${quizId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -92,11 +92,7 @@ const TakeQuiz = () => {
             
             console.log('Submitting answers:', answers);
             
-            const response = await axios.post(
-                `http://localhost:5000/api/quizzes/${quizId}/submit`,
-                { answers },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const response = await axios.post(`https://online-learning-platform-99mm.onrender.com/api/quizzes/${quizId}/submit`, { answers }, { headers: { Authorization: `Bearer ${token}` } });
             
             console.log('Submit response:', response.data);
             

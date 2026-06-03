@@ -29,7 +29,7 @@ const LiveClass = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('http://localhost:5000/api/instructor/courses', { headers });
+      const response = axios.get('https://online-learning-platform-99mm.onrender.com/api/instructor/courses', { headers });
       setCourses(response.data.courses || []);
     } catch (error) {
       console.error('Error fetching courses:', error);
@@ -40,7 +40,7 @@ const LiveClass = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('http://localhost:5000/api/live-classes/instructor', { headers });
+      const response = await axios.get('https://online-learning-platform-99mm.onrender.com/api/live-classes/instructor', { headers });
       setLiveClasses(response.data.liveClasses || []);
     } catch (error) {
       console.error('Error fetching live classes:', error);
@@ -56,10 +56,14 @@ const LiveClass = () => {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingClass) {
-        await axios.put(`http://localhost:5000/api/live-classes/${editingClass.id}`, formData, { headers });
+        axios.put(
+  `https://online-learning-platform-99mm.onrender.com/api/live-classes/${editingClass.id}`,
+  formData,
+  { headers }
+);
         toast.success('Live class updated');
       } else {
-        await axios.post('http://localhost:5000/api/live-classes/create', formData, { headers });
+        await axios.post('https://online-learning-platform-99mm.onrender.com/api/live-classes/create', formData, { headers });
         toast.success('Live class scheduled');
       }
       setShowModal(false);
@@ -73,7 +77,7 @@ const LiveClass = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Delete this live class?')) {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/live-classes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`https://online-learning-platform-99mm.onrender.com/api/live-classes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Live class deleted');
       fetchLiveClasses();
     }
