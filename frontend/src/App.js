@@ -27,6 +27,12 @@ import LiveClass from './pages/LiveClass';
 import Quizzes from './pages/Quizzes';
 import Assignments from './pages/Assignments';
 
+// Add this route to your frontend routing
+import TakeQuiz from './pages/TakeQuiz';
+
+// In your Routes
+
+
 function App() {
   return (
     <Router>
@@ -39,6 +45,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/courses" element={<CourseListingPage />} />
           <Route path="/courses/:id" element={<CourseDetails />} />
+          <Route path="/quiz/take/:quizId" element={<TakeQuiz />} />
           
           {/* Student Routes */}
           <Route path="/student/dashboard" element={

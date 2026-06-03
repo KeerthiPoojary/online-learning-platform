@@ -1,274 +1,324 @@
+// src/routes/admin.routes.js
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 
-const verifyAdmin = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'No token provided' });
-    }
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-        if (decoded.role !== 'admin') {
-            return res.status(403).json({ message: 'Admin access required' });
-        }
-        req.user = decoded;
-        next();
-    } catch (error) {
-        return res.status(401).json({ message: 'Invalid token' });
-    }
-};
-
-// GET CATEGORIES
-router.get('/categories', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const [categories] = await db.execute('SELECT * FROM categories ORDER BY name ASC');
-        res.json({ categories });
-    } catch (error) {
-        console.error('Categories error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Simple test route - no authentication required
+router.get('/test', (req, res) => {
+  console.log('Test route hit!');
+  res.json({ 
+    success: true, 
+    message: 'Admin routes are working!',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// GET INSTRUCTORS
-router.get('/instructors', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const [instructors] = await db.execute('SELECT id, name, email FROM users WHERE role = "instructor"');
-        res.json({ instructors });
-    } catch (error) {
-        console.error('Instructors error:', error);
-        res.status(500).json({ message: error.message });
+// Approve course endpoint
+router.put('/approve-course/:id', async (req, res) => {
+  const courseId = req.params.id;
+  const db = req.db;
+  
+  console.log('=== APPROVE COURSE HIT ===');
+  console.log('Course ID:', courseId);
+  
+  if (!db) {
+    return res.status(500).json({ error: 'Database not available' });
+  }
+  
+  try {
+    // Check if course exists
+    const [courses] = await db.execute(
+      'SELECT id, title, status FROM courses WHERE id = ?',
+      [courseId]
+    );
+    
+    if (courses.length === 0) {
+      return res.status(404).json({ error: 'Course not found' });
     }
+    
+    // Update course status - REMOVED updated_at
+    await db.execute(
+      'UPDATE courses SET status = ? WHERE id = ?',
+      ['approved', courseId]
+    );
+    
+    console.log('Course approved successfully!');
+    
+    res.json({ 
+      success: true, 
+      message: 'Course approved successfully',
+      course: courses[0]
+    });
+    
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// GET COURSES
-router.get('/courses', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        
-        // Simple query first to check if we get courses
-        const [courses] = await db.execute(`
-            SELECT 
-                c.id,
-                c.title,
-                c.description,
-                c.price,
-                c.level,
-                c.thumbnail,
-                c.status,
-                c.created_at,
-                c.category_id,
-                c.instructor_id,
-                cat.name as category_name,
-                u.name as instructor_name
-            FROM courses c
-            LEFT JOIN categories cat ON cat.id = c.category_id
-            LEFT JOIN users u ON u.id = c.instructor_id
-            ORDER BY c.created_at DESC
-        `);
-        
-        console.log('=== COURSES API CALLED ===');
-        console.log('Number of courses:', courses.length);
-        
-        if (courses.length > 0) {
-            console.log('First course:', {
-                id: courses[0].id,
-                title: courses[0].title,
-                category_id: courses[0].category_id,
-                category_name: courses[0].category_name,
-                instructor_id: courses[0].instructor_id,
-                instructor_name: courses[0].instructor_name
-            });
-        }
-        
-        res.json({ courses });
-    } catch (error) {
-        console.error('Courses API Error:', error);
-        res.status(500).json({ message: error.message });
+// Reject course endpoint
+router.put('/reject-course/:id', async (req, res) => {
+  const courseId = req.params.id;
+  const db = req.db;
+  
+  try {
+    const [courses] = await db.execute(
+      'SELECT id, title, status FROM courses WHERE id = ?',
+      [courseId]
+    );
+    
+    if (courses.length === 0) {
+      return res.status(404).json({ error: 'Course not found' });
     }
+    
+    // Update course status - REMOVED updated_at
+    await db.execute(
+      'UPDATE courses SET status = ? WHERE id = ?',
+      ['rejected', courseId]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Course rejected successfully',
+      course: courses[0]
+    });
+    
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// CREATE COURSE
-router.post('/courses', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const { title, description, category_id, instructor_id, price, level, thumbnail, status } = req.body;
-        
-        console.log('Creating course:', { title, category_id, instructor_id });
-        
-        const [result] = await db.execute(
-            `INSERT INTO courses (title, description, category_id, instructor_id, price, level, thumbnail, status) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [title, description, category_id, instructor_id, price || 0, level || 'beginner', thumbnail || '', status || 'pending']
-        );
-        
-        res.json({ message: 'Course created', id: result.insertId });
-    } catch (error) {
-        console.error('Create course error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Get courses
+router.get('/courses', async (req, res) => {
+  const db = req.db;
+  
+  try {
+    const [courses] = await db.execute(`
+      SELECT 
+        c.*, 
+        u.name as instructor_name, 
+        cat.name as category_name,
+        (SELECT COUNT(*) FROM enrollments WHERE course_id = c.id) as student_count
+      FROM courses c
+      LEFT JOIN users u ON c.instructor_id = u.id
+      LEFT JOIN categories cat ON c.category_id = cat.id
+      ORDER BY c.created_at DESC
+    `);
+    
+    res.json({ courses });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// UPDATE COURSE
-router.put('/courses/:id', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const { title, description, category_id, instructor_id, price, level, thumbnail, status } = req.body;
-        await db.execute(
-            `UPDATE courses SET title=?, description=?, category_id=?, instructor_id=?, price=?, level=?, thumbnail=?, status=? 
-             WHERE id=?`,
-            [title, description, category_id, instructor_id, price, level, thumbnail, status, req.params.id]
-        );
-        res.json({ message: 'Course updated' });
-    } catch (error) {
-        console.error('Update course error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Get stats
+router.get('/stats', async (req, res) => {
+  const db = req.db;
+  
+  try {
+    const [userStats] = await db.execute(`
+      SELECT 
+        COUNT(*) as totalUsers,
+        SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) as totalStudents,
+        SUM(CASE WHEN role = 'instructor' THEN 1 ELSE 0 END) as totalInstructors
+      FROM users
+    `);
+    
+    const [courseStats] = await db.execute(`
+      SELECT 
+        COUNT(*) as totalCourses,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pendingCourses
+      FROM courses
+    `);
+    
+    const [enrollmentStats] = await db.execute(`
+      SELECT 
+        COUNT(*) as totalEnrollments,
+        COALESCE(SUM(c.price), 0) as totalRevenue
+      FROM enrollments e
+      JOIN courses c ON e.course_id = c.id
+    `);
+    
+    const [ratingStats] = await db.execute(`
+      SELECT COALESCE(AVG(rating), 0) as averageRating
+      FROM reviews
+    `);
+    
+    res.json({
+      totalUsers: userStats[0].totalUsers || 0,
+      totalStudents: userStats[0].totalStudents || 0,
+      totalInstructors: userStats[0].totalInstructors || 0,
+      totalCourses: courseStats[0].totalCourses || 0,
+      pendingCourses: courseStats[0].pendingCourses || 0,
+      totalEnrollments: enrollmentStats[0].totalEnrollments || 0,
+      totalRevenue: enrollmentStats[0].totalRevenue || 0,
+      averageRating: ratingStats[0].averageRating || 0
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// DELETE COURSE
-router.delete('/courses/:id', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        await db.execute('DELETE FROM courses WHERE id = ?', [req.params.id]);
-        res.json({ message: 'Course deleted' });
-    } catch (error) {
-        console.error('Delete course error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Get users
+router.get('/users', async (req, res) => {
+  const db = req.db;
+  
+  try {
+    const [users] = await db.execute(`
+      SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC
+    `);
+    
+    res.json({ users });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// CREATE CATEGORY
-router.post('/categories', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const { name, description } = req.body;
-        const [result] = await db.execute(
-            'INSERT INTO categories (name, description) VALUES (?, ?)',
-            [name, description || '']
-        );
-        res.json({ message: 'Category created', id: result.insertId });
-    } catch (error) {
-        console.error('Create category error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Get instructors
+router.get('/instructors', async (req, res) => {
+  const db = req.db;
+  
+  try {
+    const [instructors] = await db.execute(`
+      SELECT id, name, email FROM users WHERE role = 'instructor'
+    `);
+    
+    res.json({ instructors });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// UPDATE CATEGORY
-router.put('/categories/:id', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const { name, description } = req.body;
-        await db.execute(
-            'UPDATE categories SET name = ?, description = ? WHERE id = ?',
-            [name, description || '', req.params.id]
-        );
-        res.json({ message: 'Category updated' });
-    } catch (error) {
-        console.error('Update category error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Get categories
+router.get('/categories', async (req, res) => {
+  const db = req.db;
+  
+  try {
+    const [categories] = await db.execute(`
+      SELECT * FROM categories ORDER BY name ASC
+    `);
+    
+    res.json({ categories });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// DELETE CATEGORY
-router.delete('/categories/:id', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        await db.execute('DELETE FROM categories WHERE id = ?', [req.params.id]);
-        res.json({ message: 'Category deleted' });
-    } catch (error) {
-        console.error('Delete category error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Create category
+router.post('/categories', async (req, res) => {
+  const { name, description } = req.body;
+  const db = req.db;
+  
+  try {
+    const [result] = await db.execute(
+      'INSERT INTO categories (name, description) VALUES (?, ?)',
+      [name, description || '']
+    );
+    
+    res.status(201).json({ 
+      message: 'Category created successfully', 
+      categoryId: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// GET STATS
-router.get('/stats', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const [totalUsers] = await db.execute('SELECT COUNT(*) as total FROM users');
-        const [totalCourses] = await db.execute('SELECT COUNT(*) as total FROM courses');
-        const [totalInstructors] = await db.execute('SELECT COUNT(*) as total FROM users WHERE role="instructor"');
-        const [totalStudents] = await db.execute('SELECT COUNT(*) as total FROM users WHERE role="student"');
-        res.json({
-            totalUsers: totalUsers[0].total,
-            totalCourses: totalCourses[0].total,
-            totalInstructors: totalInstructors[0].total,
-            totalStudents: totalStudents[0].total,
-            totalRevenue: 0,
-            totalEnrollments: 0,
-            totalCertificates: 0,
-            averageRating: 0,
-            pendingCourses: 0
-        });
-    } catch (error) {
-        console.error('Stats error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Update category
+router.put('/categories/:id', async (req, res) => {
+  const categoryId = req.params.id;
+  const { name, description } = req.body;
+  const db = req.db;
+  
+  try {
+    await db.execute(
+      'UPDATE categories SET name = ?, description = ? WHERE id = ?',
+      [name, description || '', categoryId]
+    );
+    
+    res.json({ message: 'Category updated successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// GET USERS
-router.get('/users', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        const [users] = await db.execute('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
-        res.json({ users });
-    } catch (error) {
-        console.error('Users error:', error);
-        res.status(500).json({ message: error.message });
-    }
+// Delete category
+router.delete('/categories/:id', async (req, res) => {
+  const categoryId = req.params.id;
+  const db = req.db;
+  
+  try {
+    await db.execute('DELETE FROM categories WHERE id = ?', [categoryId]);
+    res.json({ message: 'Category deleted successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// Dashboard Statistics
-router.get('/stats', verifyAdmin, async (req, res) => {
-    try {
-        const db = req.db;
-        
-        // User statistics
-        const [totalUsers] = await db.execute('SELECT COUNT(*) as total FROM users');
-        const [totalStudents] = await db.execute('SELECT COUNT(*) as total FROM users WHERE role = "student"');
-        const [totalInstructors] = await db.execute('SELECT COUNT(*) as total FROM users WHERE role = "instructor"');
-        
-        // Course statistics
-        const [totalCourses] = await db.execute('SELECT COUNT(*) as total FROM courses');
-        const [pendingCourses] = await db.execute('SELECT COUNT(*) as total FROM courses WHERE status = "pending"');
-        
-        // Revenue statistics
-        const [totalRevenue] = await db.execute('SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE status = "completed"');
-        
-        // Enrollment statistics - FIX THIS
-        const [totalEnrollments] = await db.execute('SELECT COUNT(*) as total FROM enrollments');
-        
-        // Certificate statistics
-        const [totalCertificates] = await db.execute('SELECT COUNT(*) as total FROM certificates');
-        
-        // Average rating
-        const [avgRating] = await db.execute('SELECT COALESCE(AVG(rating), 0) as average FROM reviews');
-        
-        console.log('Stats calculated:', {
-            totalEnrollments: totalEnrollments[0].total,
-            totalCourses: totalCourses[0].total,
-            totalStudents: totalStudents[0].total
-        });
-        
-        res.json({
-            totalUsers: totalUsers[0].total || 0,
-            totalStudents: totalStudents[0].total || 0,
-            totalInstructors: totalInstructors[0].total || 0,
-            totalCourses: totalCourses[0].total || 0,
-            totalRevenue: totalRevenue[0].total || 0,
-            totalEnrollments: totalEnrollments[0].total || 0,
-            totalCertificates: totalCertificates[0].total || 0,
-            averageRating: parseFloat(avgRating[0].average || 0).toFixed(1),
-            pendingCourses: pendingCourses[0].total || 0,
-            monthlyGrowth: 15
-        });
-    } catch (error) {
-        console.error('Stats error:', error);
-        res.status(500).json({ message: 'Server error', error: error.message });
-    }
+// Create course
+router.post('/courses', async (req, res) => {
+  const { title, description, category_id, instructor_id, price, level, thumbnail, status } = req.body;
+  const db = req.db;
+  
+  try {
+    const [result] = await db.execute(
+      `INSERT INTO courses (title, description, category_id, instructor_id, price, level, thumbnail, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description, category_id || null, instructor_id, price || 0, level, thumbnail || '', status || 'pending']
+    );
+    
+    res.status(201).json({ 
+      message: 'Course created successfully', 
+      courseId: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update course
+router.put('/courses/:id', async (req, res) => {
+  const courseId = req.params.id;
+  const { title, description, category_id, instructor_id, price, level, thumbnail, status } = req.body;
+  const db = req.db;
+  
+  try {
+    await db.execute(
+      `UPDATE courses 
+       SET title = ?, description = ?, category_id = ?, instructor_id = ?, 
+           price = ?, level = ?, thumbnail = ?, status = ?
+       WHERE id = ?`,
+      [title, description, category_id || null, instructor_id, price || 0, level, thumbnail || '', status, courseId]
+    );
+    
+    res.json({ message: 'Course updated successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete course
+router.delete('/courses/:id', async (req, res) => {
+  const courseId = req.params.id;
+  const db = req.db;
+  
+  try {
+    await db.execute('DELETE FROM courses WHERE id = ?', [courseId]);
+    res.json({ message: 'Course deleted successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;

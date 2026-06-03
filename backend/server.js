@@ -48,6 +48,7 @@ const quizRoutes = require('./src/routes/quiz.routes');
 const assignmentRoutes = require('./src/routes/assignment.routes');
 const liveClassRoutes = require('./src/routes/liveclass.routes');
 
+
 // Use Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
@@ -57,6 +58,10 @@ app.use('/api/instructor', instructorRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/live-classes', liveClassRoutes);
+// Add these routes after your existing routes
+app.use('/api/courses', courseRoutes);
+
+
 
 // Categories endpoint - direct route
 app.get('/api/categories', async (req, res) => {
@@ -116,3 +121,5 @@ server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`📍 http://localhost:${PORT}`);
 });
+
+

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { FaPlus, FaEdit, FaTrash, FaUsers, FaChartLine, FaDollarSign, FaStar, FaBookOpen, FaUserGraduate, FaChalkboardTeacher, FaTags, FaCheck, FaTimes, FaEye } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaUsers, FaChartLine, FaDollarSign, FaStar, FaBookOpen, FaUserGraduate, FaChalkboardTeacher, FaTags, FaCheck, FaTimes, FaEye, FaFilter, FaSearch, FaSpinner } from 'react-icons/fa';
 import { Pie, Bar, Line } from 'react-chartjs-2';
 import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
@@ -29,6 +29,7 @@ const AdminDashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [processingAction, setProcessingAction] = useState(false);
   const [stats, setStats] = useState({
     totalUsers: 0, totalStudents: 0, totalInstructors: 0,
     totalCourses: 0, totalRevenue: 0, totalEnrollments: 0,
@@ -42,6 +43,8 @@ const AdminDashboard = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [courseFilter, setCourseFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({ 
     title: '', description: '', category_id: '', instructor_id: '', 
     price: 0, level: 'beginner', thumbnail: '', status: 'approved' 
@@ -54,14 +57,19 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please login again');
+        return;
+      }
+      
       const headers = { Authorization: `Bearer ${token}` };
       
       const [statsRes, coursesRes, usersRes, categoriesRes, instructorsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/admin/stats', headers),
-        axios.get('http://localhost:5000/api/admin/courses', headers),
-        axios.get('http://localhost:5000/api/admin/users', headers),
-        axios.get('http://localhost:5000/api/admin/categories', headers),
-        axios.get('http://localhost:5000/api/admin/instructors', headers)
+        axios.get('http://localhost:5000/api/admin/stats', { headers }),
+        axios.get('http://localhost:5000/api/admin/courses', { headers }),
+        axios.get('http://localhost:5000/api/admin/users', { headers }),
+        axios.get('http://localhost:5000/api/admin/categories', { headers }),
+        axios.get('http://localhost:5000/api/admin/instructors', { headers })
       ]);
       
       setStats(statsRes.data);
@@ -71,7 +79,13 @@ const AdminDashboard = () => {
       setInstructors(instructorsRes.data.instructors || []);
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Failed to load data');
+      if (error.response?.status === 401) {
+        toast.error('Unauthorized access');
+      } else if (error.response?.status === 403) {
+        toast.error('Admin privileges required');
+      } else {
+        toast.error('Failed to load data');
+      }
     } finally {
       setLoading(false);
     }
@@ -80,6 +94,7 @@ const AdminDashboard = () => {
   const handleSaveCourse = async (e) => {
     e.preventDefault();
     try {
+      setProcessingAction(true);
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
@@ -87,7 +102,7 @@ const AdminDashboard = () => {
         title: formData.title,
         description: formData.description,
         category_id: formData.category_id || null,
-        instructor_id: formData.instructor_id,
+        instructor_id: parseInt(formData.instructor_id),
         price: parseFloat(formData.price) || 0,
         level: formData.level,
         thumbnail: formData.thumbnail || '',
@@ -95,40 +110,47 @@ const AdminDashboard = () => {
       };
       
       if (editingItem) {
-        await axios.put(`http://localhost:5000/api/admin/courses/${editingItem.id}`, courseData, headers);
-        toast.success('Course updated');
+        await axios.put(`http://localhost:5000/api/admin/courses/${editingItem.id}`, courseData, { headers });
+        toast.success('Course updated successfully');
       } else {
-        await axios.post('http://localhost:5000/api/admin/courses', courseData, headers);
-        toast.success('Course created');
+        await axios.post('http://localhost:5000/api/admin/courses', courseData, { headers });
+        toast.success('Course created successfully');
       }
       setShowModal(false);
       setEditingItem(null);
       resetForm();
-      loadData();
+      await loadData();
     } catch (error) {
-      toast.error('Failed to save course');
+      console.error('Save error:', error);
+      toast.error(error.response?.data?.message || 'Failed to save course');
+    } finally {
+      setProcessingAction(false);
     }
   };
 
   const handleSaveCategory = async (e) => {
     e.preventDefault();
     try {
+      setProcessingAction(true);
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingCategory) {
-        await axios.put(`http://localhost:5000/api/admin/categories/${editingCategory.id}`, catForm, headers);
-        toast.success('Category updated');
+        await axios.put(`http://localhost:5000/api/admin/categories/${editingCategory.id}`, catForm, { headers });
+        toast.success('Category updated successfully');
       } else {
-        await axios.post('http://localhost:5000/api/admin/categories', catForm, headers);
-        toast.success('Category created');
+        await axios.post('http://localhost:5000/api/admin/categories', catForm, { headers });
+        toast.success('Category created successfully');
       }
       setShowCategoryModal(false);
       setEditingCategory(null);
       setCatForm({ name: '', description: '' });
-      loadData();
+      await loadData();
     } catch (error) {
-      toast.error('Failed to save category');
+      console.error('Save error:', error);
+      toast.error(error.response?.data?.message || 'Failed to save category');
+    } finally {
+      setProcessingAction(false);
     }
   };
 
@@ -140,29 +162,70 @@ const AdminDashboard = () => {
   };
 
   const handleDelete = async (type, id) => {
-    if (window.confirm('Delete this item?')) {
+    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      setProcessingAction(true);
       const token = localStorage.getItem('token');
       const endpoint = type === 'course' ? `/api/admin/courses/${id}` : `/api/admin/categories/${id}`;
-      await axios.delete(`http://localhost:5000${endpoint}`, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success(`${type} deleted`);
-      loadData();
+      await axios.delete(`http://localhost:5000${endpoint}`, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully`);
+      await loadData();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error(error.response?.data?.message || `Failed to delete ${type}`);
+    } finally {
+      setProcessingAction(false);
     }
   };
 
   const handleApprove = async (courseId) => {
-    const token = localStorage.getItem('token');
-    await axios.put(`http://localhost:5000/api/admin/approve-course/${courseId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-    toast.success('Course approved');
-    loadData();
+    try {
+      setProcessingAction(true);
+      const token = localStorage.getItem('token');
+      await axios.put(`http://localhost:5000/api/admin/approve-course/${courseId}`, {}, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Course approved successfully');
+      await loadData();
+    } catch (error) {
+      console.error('Approval error:', error);
+      toast.error(error.response?.data?.message || 'Failed to approve course');
+    } finally {
+      setProcessingAction(false);
+    }
   };
 
   const handleReject = async (courseId) => {
-    const token = localStorage.getItem('token');
-    await axios.put(`http://localhost:5000/api/admin/reject-course/${courseId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-    toast.success('Course rejected');
-    loadData();
+    try {
+      setProcessingAction(true);
+      const token = localStorage.getItem('token');
+      await axios.put(`http://localhost:5000/api/admin/reject-course/${courseId}`, {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Course rejected successfully');
+      await loadData();
+    } catch (error) {
+      console.error('Rejection error:', error);
+      toast.error(error.response?.data?.message || 'Failed to reject course');
+    } finally {
+      setProcessingAction(false);
+    }
   };
 
+  // Filter courses based on status and search
+  const filteredCourses = courses.filter(course => {
+    const matchesFilter = courseFilter === 'all' || course.status === courseFilter;
+    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          course.instructor_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  // Chart data
   const userDistributionData = {
     labels: ['Students', 'Instructors', 'Admins'],
     datasets: [{
@@ -222,7 +285,9 @@ const AdminDashboard = () => {
   if (loading) {
     return (
       <Layout>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>Loading...</div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+          <FaSpinner className="animate-spin" size={40} color="#3B82F6" />
+        </div>
       </Layout>
     );
   }
@@ -231,16 +296,24 @@ const AdminDashboard = () => {
     <Layout>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>Admin Dashboard</h1>
             <p style={{ color: '#6B7280' }}>Welcome back, {user?.name}!</p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => { setShowCategoryModal(true); setEditingCategory(null); setCatForm({ name: '', description: '' }); }} style={{ background: '#10B981', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button 
+              onClick={() => { setShowCategoryModal(true); setEditingCategory(null); setCatForm({ name: '', description: '' }); }} 
+              style={{ background: '#10B981', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled={processingAction}
+            >
               <FaTags /> Add Category
             </button>
-            <button onClick={() => { setShowModal(true); setEditingItem(null); resetForm(); }} style={{ background: '#2563EB', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button 
+              onClick={() => { setShowModal(true); setEditingItem(null); resetForm(); }} 
+              style={{ background: '#2563EB', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled={processingAction}
+            >
               <FaPlus /> Add Course
             </button>
           </div>
@@ -255,18 +328,18 @@ const AdminDashboard = () => {
         </div>
 
         {/* Tabs */}
-        <div style={{ borderBottom: '1px solid #E5E7EB', marginBottom: '20px', display: 'flex', gap: '20px' }}>
-          <button onClick={() => setActiveTab('overview')} style={{ padding: '10px 0', borderBottom: activeTab === 'overview' ? '2px solid #2563EB' : 'none', color: activeTab === 'overview' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer' }}>Overview</button>
-          <button onClick={() => setActiveTab('courses')} style={{ padding: '10px 0', borderBottom: activeTab === 'courses' ? '2px solid #2563EB' : 'none', color: activeTab === 'courses' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer' }}>Courses</button>
-          <button onClick={() => setActiveTab('users')} style={{ padding: '10px 0', borderBottom: activeTab === 'users' ? '2px solid #2563EB' : 'none', color: activeTab === 'users' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer' }}>Users</button>
-          <button onClick={() => setActiveTab('categories')} style={{ padding: '10px 0', borderBottom: activeTab === 'categories' ? '2px solid #2563EB' : 'none', color: activeTab === 'categories' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer' }}>Categories</button>
+        <div style={{ borderBottom: '1px solid #E5E7EB', marginBottom: '20px', display: 'flex', gap: '20px', overflowX: 'auto' }}>
+          <button onClick={() => setActiveTab('overview')} style={{ padding: '10px 0', borderBottom: activeTab === 'overview' ? '2px solid #2563EB' : 'none', color: activeTab === 'overview' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Overview</button>
+          <button onClick={() => setActiveTab('courses')} style={{ padding: '10px 0', borderBottom: activeTab === 'courses' ? '2px solid #2563EB' : 'none', color: activeTab === 'courses' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Courses</button>
+          <button onClick={() => setActiveTab('users')} style={{ padding: '10px 0', borderBottom: activeTab === 'users' ? '2px solid #2563EB' : 'none', color: activeTab === 'users' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Users</button>
+          <button onClick={() => setActiveTab('categories')} style={{ padding: '10px 0', borderBottom: activeTab === 'categories' ? '2px solid #2563EB' : 'none', color: activeTab === 'categories' ? '#2563EB' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Categories</button>
         </div>
 
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div>
             {/* Charts Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '30px' }}>
               {/* Pie Chart */}
               <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', textAlign: 'center' }}>User Distribution</h3>
@@ -298,7 +371,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
               <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px' }}>Platform Summary</h3>
                 <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '15px' }}>
@@ -349,49 +422,156 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Courses Tab */}
+        {/* Courses Tab with Filters */}
         {activeTab === 'courses' && (
-          <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#F9FAFB' }}>
-                  <tr>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Title</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Instructor</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Category</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Price</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Students</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
-                    <th style={{ padding: '12px', textAlign: 'left' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {courses.map(course => (
-                    <tr key={course.id} style={{ borderTop: '1px solid #E5E7EB' }}>
-                      <td style={{ padding: '12px' }}>
-                        <div><strong>{course.title}</strong></div>
-                        <div style={{ fontSize: '12px', color: '#6B7280' }}>{course.description?.substring(0, 50)}</div>
-                      </td>
-                      <td style={{ padding: '12px' }}>{course.instructor_name}</td>
-                      <td style={{ padding: '12px' }}>{course.category_name}</td>
-                      <td style={{ padding: '12px' }}>{course.price === 0 ? 'Free' : `$${course.price}`}</td>
-                      <td style={{ padding: '12px' }}>{course.student_count || 0}</td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '11px', background: course.status === 'approved' ? '#D1FAE5' : course.status === 'pending' ? '#FEF3C7' : '#FEE2E2', color: course.status === 'approved' ? '#065F46' : course.status === 'pending' ? '#92400E' : '#991B1B' }}>{course.status}</span>
-                      </td>
-                      <td style={{ padding: '12px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => handleApprove(course.id)} style={{ color: '#10B981', background: 'none', border: 'none', cursor: 'pointer' }} title="Approve"><FaCheck /></button>
-                          <button onClick={() => handleReject(course.id)} style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }} title="Reject"><FaTimes /></button>
-                          <button onClick={() => { setShowModal(true); setEditingItem(course); setFormData({ title: course.title, description: course.description, category_id: course.category_id, instructor_id: course.instructor_id, price: course.price, level: course.level, thumbnail: course.thumbnail || '', status: course.status }); }} style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }} title="Edit"><FaEdit /></button>
-                          <button onClick={() => handleDelete('course', course.id)} style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }} title="Delete"><FaTrash /></button>
-                          <a href={`/courses/${course.id}`} target="_blank" rel="noopener noreferrer" style={{ color: '#8B5CF6', background: 'none', border: 'none', cursor: 'pointer' }} title="View"><FaEye /></a>
-                        </div>
-                      </td>
+          <div>
+            {/* Filters */}
+            <div style={{ background: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaFilter />
+                  <select 
+                    value={courseFilter} 
+                    onChange={(e) => setCourseFilter(e.target.value)}
+                    style={{ padding: '8px 12px', border: '1px solid #D1D5DB', borderRadius: '8px' }}
+                  >
+                    <option value="all">All Courses</option>
+                    <option value="pending">Pending Approval</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                  <FaSearch />
+                  <input
+                    type="text"
+                    placeholder="Search by course title or instructor..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ padding: '8px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', flex: 1 }}
+                  />
+                </div>
+                <div>
+                  <span style={{ fontSize: '14px', color: '#6B7280' }}>
+                    Showing {filteredCourses.length} of {courses.length} courses
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Courses Table */}
+            <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead style={{ background: '#F9FAFB' }}>
+                    <tr>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Title</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Instructor</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Category</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Price</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Students</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredCourses.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#6B7280' }}>
+                          No courses found
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCourses.map(course => (
+                        <tr key={course.id} style={{ borderTop: '1px solid #E5E7EB' }}>
+                          <td style={{ padding: '12px' }}>
+                            <div><strong>{course.title}</strong></div>
+                            <div style={{ fontSize: '12px', color: '#6B7280' }}>{course.description?.substring(0, 50)}...</div>
+                          </td>
+                          <td style={{ padding: '12px' }}>{course.instructor_name}</td>
+                          <td style={{ padding: '12px' }}>{course.category_name}</td>
+                          <td style={{ padding: '12px' }}>{course.price === 0 ? 'Free' : `$${course.price}`}</td>
+                          <td style={{ padding: '12px' }}>{course.student_count || 0}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ 
+                              padding: '4px 12px', 
+                              borderRadius: '20px', 
+                              fontSize: '12px', 
+                              fontWeight: '500',
+                              background: course.status === 'approved' ? '#D1FAE5' : course.status === 'pending' ? '#FEF3C7' : '#FEE2E2', 
+                              color: course.status === 'approved' ? '#065F46' : course.status === 'pending' ? '#92400E' : '#991B1B' 
+                            }}>
+                              {course.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {course.status === 'pending' && (
+                                <>
+                                  <button 
+                                    onClick={() => handleApprove(course.id)} 
+                                    style={{ color: '#10B981', background: 'none', border: 'none', cursor: 'pointer' }} 
+                                    title="Approve"
+                                    disabled={processingAction}
+                                  >
+                                    <FaCheck size={18} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleReject(course.id)} 
+                                    style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }} 
+                                    title="Reject"
+                                    disabled={processingAction}
+                                  >
+                                    <FaTimes size={18} />
+                                  </button>
+                                </>
+                              )}
+                              <button 
+                                onClick={() => { 
+                                  setShowModal(true); 
+                                  setEditingItem(course); 
+                                  setFormData({ 
+                                    title: course.title, 
+                                    description: course.description, 
+                                    category_id: course.category_id, 
+                                    instructor_id: course.instructor_id, 
+                                    price: course.price, 
+                                    level: course.level, 
+                                    thumbnail: course.thumbnail || '', 
+                                    status: course.status 
+                                  }); 
+                                }} 
+                                style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }} 
+                                title="Edit"
+                                disabled={processingAction}
+                              >
+                                <FaEdit size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleDelete('course', course.id)} 
+                                style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }} 
+                                title="Delete"
+                                disabled={processingAction}
+                              >
+                                <FaTrash size={18} />
+                              </button>
+                              <a 
+                                href={`/courses/${course.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                style={{ color: '#8B5CF6', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} 
+                                title="View"
+                              >
+                                <FaEye size={18} />
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -415,7 +595,7 @@ const AdminDashboard = () => {
                       <td style={{ padding: '12px' }}>{u.name}</td>
                       <td style={{ padding: '12px' }}>{u.email}</td>
                       <td style={{ padding: '12px' }}>
-                        <span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '11px', background: u.role === 'admin' ? '#FEE2E2' : u.role === 'instructor' ? '#DBEAFE' : '#D1FAE5', color: u.role === 'admin' ? '#991B1B' : u.role === 'instructor' ? '#1E40AF' : '#065F46' }}>{u.role}</span>
+                        <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', background: u.role === 'admin' ? '#FEE2E2' : u.role === 'instructor' ? '#DBEAFE' : '#D1FAE5', color: u.role === 'admin' ? '#991B1B' : u.role === 'instructor' ? '#1E40AF' : '#065F46' }}>{u.role}</span>
                       </td>
                       <td style={{ padding: '12px' }}>{new Date(u.created_at).toLocaleDateString()}</td>
                     </tr>
@@ -430,7 +610,11 @@ const AdminDashboard = () => {
         {activeTab === 'categories' && (
           <div>
             <div style={{ marginBottom: '20px', textAlign: 'right' }}>
-              <button onClick={() => { setShowCategoryModal(true); setEditingCategory(null); setCatForm({ name: '', description: '' }); }} style={{ background: '#10B981', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
+              <button 
+                onClick={() => { setShowCategoryModal(true); setEditingCategory(null); setCatForm({ name: '', description: '' }); }} 
+                style={{ background: '#10B981', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                disabled={processingAction}
+              >
                 <FaTags /> Add Category
               </button>
             </div>
@@ -443,10 +627,18 @@ const AdminDashboard = () => {
                       <p style={{ fontSize: '14px', color: '#6B7280' }}>{cat.description || 'No description'}</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => { setShowCategoryModal(true); setEditingCategory(cat); setCatForm({ name: cat.name, description: cat.description || '' }); }} style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      <button 
+                        onClick={() => { setShowCategoryModal(true); setEditingCategory(cat); setCatForm({ name: cat.name, description: cat.description || '' }); }} 
+                        style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
+                        disabled={processingAction}
+                      >
                         <FaEdit />
                       </button>
-                      <button onClick={() => handleDelete('category', cat.id)} style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      <button 
+                        onClick={() => handleDelete('category', cat.id)} 
+                        style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                        disabled={processingAction}
+                      >
                         <FaTrash />
                       </button>
                     </div>
@@ -470,31 +662,76 @@ const AdminDashboard = () => {
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}>×</button>
             </div>
             <form onSubmit={handleSaveCourse}>
-              <input type="text" placeholder="Course Title *" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} required />
-              <textarea placeholder="Description *" rows="4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} required />
+              <input 
+                type="text" 
+                placeholder="Course Title *" 
+                value={formData.title} 
+                onChange={e => setFormData({...formData, title: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
+                required 
+              />
+              <textarea 
+                placeholder="Description *" 
+                rows="4" 
+                value={formData.description} 
+                onChange={e => setFormData({...formData, description: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
+                required 
+              />
               
-              <select value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} required>
+              <select 
+                value={formData.category_id} 
+                onChange={e => setFormData({...formData, category_id: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
+                required
+              >
                 <option value="">Select Category</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               
-              <select value={formData.instructor_id} onChange={e => setFormData({...formData, instructor_id: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} required>
+              <select 
+                value={formData.instructor_id} 
+                onChange={e => setFormData({...formData, instructor_id: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
+                required
+              >
                 <option value="">Select Instructor</option>
                 {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value})} style={{ padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }}>
+                <select 
+                  value={formData.level} 
+                  onChange={e => setFormData({...formData, level: e.target.value})} 
+                  style={{ padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }}
+                >
                   <option value="beginner">Beginner</option>
                   <option value="intermediate">Intermediate</option>
                   <option value="advanced">Advanced</option>
                 </select>
-                <input type="number" step="0.01" placeholder="Price" value={formData.price} onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} style={{ padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }} />
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="Price" 
+                  value={formData.price} 
+                  onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} 
+                  style={{ padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }} 
+                />
               </div>
               
-              <input type="text" placeholder="Thumbnail URL (optional)" value={formData.thumbnail} onChange={e => setFormData({...formData, thumbnail: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} />
+              <input 
+                type="text" 
+                placeholder="Thumbnail URL (optional)" 
+                value={formData.thumbnail} 
+                onChange={e => setFormData({...formData, thumbnail: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
+              />
               
-              <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }}>
+              <select 
+                value={formData.status} 
+                onChange={e => setFormData({...formData, status: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }}
+              >
                 <option value="approved">Approved</option>
                 <option value="pending">Pending</option>
                 <option value="rejected">Rejected</option>
@@ -502,7 +739,9 @@ const AdminDashboard = () => {
               
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
                 <button type="button" onClick={() => setShowModal(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{editingItem ? 'Update' : 'Create'}</button>
+                <button type="submit" style={{ padding: '8px 16px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }} disabled={processingAction}>
+                  {processingAction ? <FaSpinner className="animate-spin" /> : (editingItem ? 'Update' : 'Create')}
+                </button>
               </div>
             </form>
           </div>
@@ -518,11 +757,26 @@ const AdminDashboard = () => {
               <button onClick={() => setShowCategoryModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}>×</button>
             </div>
             <form onSubmit={handleSaveCategory}>
-              <input type="text" placeholder="Category Name *" value={catForm.name} onChange={e => setCatForm({...catForm, name: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} required />
-              <textarea placeholder="Description" rows="3" value={catForm.description} onChange={e => setCatForm({...catForm, description: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} />
+              <input 
+                type="text" 
+                placeholder="Category Name *" 
+                value={catForm.name} 
+                onChange={e => setCatForm({...catForm, name: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
+                required 
+              />
+              <textarea 
+                placeholder="Description" 
+                rows="3" 
+                value={catForm.description} 
+                onChange={e => setCatForm({...catForm, description: e.target.value})} 
+                style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px', marginBottom: '12px' }} 
+              />
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
                 <button type="button" onClick={() => setShowCategoryModal(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{editingCategory ? 'Update' : 'Save'}</button>
+                <button type="submit" style={{ padding: '8px 16px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }} disabled={processingAction}>
+                  {processingAction ? <FaSpinner className="animate-spin" /> : (editingCategory ? 'Update' : 'Save')}
+                </button>
               </div>
             </form>
           </div>

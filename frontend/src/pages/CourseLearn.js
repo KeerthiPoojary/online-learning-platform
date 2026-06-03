@@ -37,19 +37,21 @@ const CourseLearn = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
-      const courseRes = await axios.get(`http://localhost:5000/api/courses/${id}`, { headers });
+      const courseRes = await axios.get(`http://localhost:5000/api/courses/${id}`);
       setCourse(courseRes.data);
       
-      const lessonsRes = await axios.get(`http://localhost:5000/api/courses/${id}/lessons`, { headers });
+      const lessonsRes = await axios.get(`http://localhost:5000/api/courses/${id}/lessons`);
       setLessons(lessonsRes.data.lessons || []);
       
-      const quizzesRes = await axios.get(`http://localhost:5000/api/quizzes/course/${id}`, { headers });
-      setQuizzes(quizzesRes.data.quizzes || []);
-      
-      const assignmentsRes = await axios.get(`http://localhost:5000/api/assignments/course/${id}`, { headers });
-      setAssignments(assignmentsRes.data.assignments || []);
+      if (token) {
+        const quizzesRes = await axios.get(`http://localhost:5000/api/quizzes/course/${id}`, { headers });
+        setQuizzes(quizzesRes.data.quizzes || []);
+        
+        const assignmentsRes = await axios.get(`http://localhost:5000/api/assignments/course/${id}`, { headers });
+        setAssignments(assignmentsRes.data.assignments || []);
+      }
       
     } catch (error) {
       console.error('Error fetching course:', error);
@@ -62,6 +64,7 @@ const CourseLearn = () => {
   const fetchCourseProgress = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) return;
       const headers = { Authorization: `Bearer ${token}` };
       const response = await axios.get(`http://localhost:5000/api/courses/progress/${id}`, { headers });
       setCourseProgress(response.data);
@@ -73,6 +76,7 @@ const CourseLearn = () => {
   const fetchCompletedLessons = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) return;
       const headers = { Authorization: `Bearer ${token}` };
       const response = await axios.get(`http://localhost:5000/api/courses/progress/${id}/details`, { headers });
       
@@ -120,8 +124,10 @@ const CourseLearn = () => {
     return url;
   };
 
-  const handleAnswerSelect = (questionId, answer) => {
-    setQuizAnswers({ ...quizAnswers, [questionId]: answer });
+  // FIXED: Store LETTER (A, B, C, D) instead of full text
+  const handleAnswerSelect = (questionId, answerLetter) => {
+    console.log(`Selected answer for Q${questionId}: ${answerLetter}`);
+    setQuizAnswers({ ...quizAnswers, [questionId]: answerLetter });
   };
 
   const handleQuizSubmit = async () => {
@@ -132,6 +138,10 @@ const CourseLearn = () => {
     
     const totalQuestions = quizQuestions.length;
     const answeredCount = Object.keys(quizAnswers).length;
+    
+    console.log('=== SUBMITTING QUIZ ===');
+    console.log('Quiz ID:', currentQuiz.id);
+    console.log('Answers:', quizAnswers);
     
     if (answeredCount < totalQuestions) {
       toast.error(`Please answer all ${totalQuestions} questions`);
@@ -151,11 +161,15 @@ const CourseLearn = () => {
         }
       });
       
+      console.log('Submitting answers:', formattedAnswers);
+      
       const response = await axios.post(
         `http://localhost:5000/api/quizzes/${currentQuiz.id}/submit`,
         { answers: formattedAnswers },
         { headers }
       );
+      
+      console.log('Response:', response.data);
       
       if (response.data.success) {
         setQuizResult({
@@ -201,6 +215,7 @@ const CourseLearn = () => {
         return;
       }
       
+      console.log('Quiz questions received:', response.data.questions);
       setQuizQuestions(response.data.questions || []);
       setAttemptInfo({
         attemptNumber: response.data.attemptNumber,
@@ -261,6 +276,92 @@ const CourseLearn = () => {
     if (currentLesson > 0) {
       setCurrentLesson(currentLesson - 1);
     }
+  };
+
+  // FIXED: Render function that stores LETTERS (A, B, C, D) instead of full text
+  const renderQuizQuestion = (question, idx) => {
+    const isTrueFalse = question.question_type === 'true_false';
+    
+    if (isTrueFalse) {
+      // For True/False, store 'A' for True, 'B' for False
+      return (
+        <div className="space-y-2 ml-4">
+          <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+            <input
+              type="radio"
+              name={`q${question.id}`}
+              value="A"
+              checked={quizAnswers[question.id] === 'A'}
+              onChange={() => handleAnswerSelect(question.id, 'A')}
+              className="w-4 h-4"
+            />
+            <span>True</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+            <input
+              type="radio"
+              name={`q${question.id}`}
+              value="B"
+              checked={quizAnswers[question.id] === 'B'}
+              onChange={() => handleAnswerSelect(question.id, 'B')}
+              className="w-4 h-4"
+            />
+            <span>False</span>
+          </label>
+        </div>
+      );
+    }
+    
+    // For multiple choice questions - store LETTERS (A, B, C, D)
+    if (question.options && Array.isArray(question.options)) {
+      const letters = ['A', 'B', 'C', 'D'];
+      return (
+        <div className="space-y-2 ml-4">
+          {question.options.map((option, optIdx) => {
+            const letter = letters[optIdx];
+            return option && option.trim() !== '' && (
+              <label key={optIdx} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+                <input
+                  type="radio"
+                  name={`q${question.id}`}
+                  value={letter}
+                  checked={quizAnswers[question.id] === letter}
+                  onChange={() => handleAnswerSelect(question.id, letter)}
+                  className="w-4 h-4"
+                />
+                <span>{letter}) {option}</span>
+              </label>
+            );
+          })}
+        </div>
+      );
+    }
+    
+    // Fallback for older format with option_a, option_b, etc. - store LETTERS
+    const options = [
+      { letter: 'A', text: question.option_a },
+      { letter: 'B', text: question.option_b },
+      { letter: 'C', text: question.option_c },
+      { letter: 'D', text: question.option_d }
+    ].filter(opt => opt.text);
+    
+    return (
+      <div className="space-y-2 ml-4">
+        {options.map(opt => (
+          <label key={opt.letter} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+            <input
+              type="radio"
+              name={`q${question.id}`}
+              value={opt.letter}
+              checked={quizAnswers[question.id] === opt.letter}
+              onChange={() => handleAnswerSelect(question.id, opt.letter)}
+              className="w-4 h-4"
+            />
+            <span>{opt.letter}) {opt.text}</span>
+          </label>
+        ))}
+      </div>
+    );
   };
 
   if (loading) {
@@ -345,6 +446,7 @@ const CourseLearn = () => {
         </div>
         
         {activeTab === 'lessons' && (
+          // ... (keep your existing lessons code)
           <>
             {lessons.length === 0 ? (
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
@@ -354,6 +456,7 @@ const CourseLearn = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Video Player */}
                 <div className="lg:col-span-2">
                   <div className="bg-black rounded-lg overflow-hidden aspect-video">
                     {videoUrl ? (
@@ -370,70 +473,36 @@ const CourseLearn = () => {
                       </div>
                     )}
                   </div>
-                  
                   <div className="mt-4">
                     <h2 className="text-xl font-semibold">{currentVideo?.title}</h2>
                     {currentVideo?.description && (
                       <p className="text-gray-600 mt-2">{currentVideo.description}</p>
                     )}
                   </div>
-                  
                   <div className="flex justify-between mt-6">
-                    <button
-                      onClick={prevLesson}
-                      disabled={currentLesson === 0}
-                      className="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      ← Previous Lesson
-                    </button>
+                    <button onClick={prevLesson} disabled={currentLesson === 0} className="px-4 py-2 border rounded-md disabled:opacity-50">← Previous Lesson</button>
                     <div className="flex gap-3">
                       {!completedLessons[currentVideo?.id] && (
-                        <button
-                          onClick={() => markLessonComplete(currentVideo?.id)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                        >
+                        <button onClick={() => markLessonComplete(currentVideo?.id)} className="px-4 py-2 bg-green-600 text-white rounded-md">
                           <FaCheckCircle className="inline mr-1" /> Mark as Completed
                         </button>
                       )}
-                      <button
-                        onClick={nextLesson}
-                        disabled={currentLesson === lessons.length - 1}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
+                      <button onClick={nextLesson} disabled={currentLesson === lessons.length - 1} className="px-4 py-2 bg-blue-600 text-white rounded-md">
                         Next Lesson →
                       </button>
                     </div>
                   </div>
                 </div>
                 
+                {/* Lessons List */}
                 <div className="bg-white rounded-lg shadow-md p-4">
                   <h3 className="font-semibold text-lg mb-3">Course Content ({lessons.length} lessons)</h3>
                   <div className="space-y-2 max-h-[500px] overflow-y-auto">
                     {lessons.map((lesson, index) => (
-                      <button
-                        key={lesson.id}
-                        onClick={() => setCurrentLesson(index)}
-                        className={`w-full text-left p-3 rounded-lg transition-colors flex items-center gap-3 ${
-                          currentLesson === index
-                            ? 'bg-blue-50 border border-blue-200'
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-                          currentLesson === index
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-600'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <span className={`${currentLesson === index ? 'font-medium' : ''}`}>
-                            {lesson.title}
-                          </span>
-                        </div>
-                        {completedLessons[lesson.id] && (
-                          <FaCheckCircle className="text-green-500 text-sm" />
-                        )}
+                      <button key={lesson.id} onClick={() => setCurrentLesson(index)} className={`w-full text-left p-3 rounded-lg flex items-center gap-3 ${currentLesson === index ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${currentLesson === index ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{index + 1}</div>
+                        <div className="flex-1"><span className={currentLesson === index ? 'font-medium' : ''}>{lesson.title}</span></div>
+                        {completedLessons[lesson.id] && <FaCheckCircle className="text-green-500 text-sm" />}
                         <FaPlay className="text-gray-400 text-xs" />
                       </button>
                     ))}
@@ -461,9 +530,7 @@ const CourseLearn = () => {
                   </div>
                 ) : quizResult ? (
                   <div className="text-center py-8">
-                    <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-4 ${
-                      quizResult.passed ? 'bg-green-100' : 'bg-red-100'
-                    }`}>
+                    <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-4 ${quizResult.passed ? 'bg-green-100' : 'bg-red-100'}`}>
                       <FaTrophy className={`text-4xl ${quizResult.passed ? 'text-green-600' : 'text-red-600'}`} />
                     </div>
                     <h3 className="text-2xl font-bold mb-2">Your Score: {quizResult.score}%</h3>
@@ -474,10 +541,7 @@ const CourseLearn = () => {
                     <p className="text-sm text-gray-500 mb-6">
                       Attempt {quizResult.attemptNumber} of {quizResult.maxAttempts} • Best Score: {quizResult.bestScore}%
                     </p>
-                    <button
-                      onClick={() => { setCurrentQuiz(null); setQuizResult(null); setQuizAnswers({}); setQuizQuestions([]); fetchCourseData(); }}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
-                    >
+                    <button onClick={() => { setCurrentQuiz(null); setQuizResult(null); setQuizAnswers({}); setQuizQuestions([]); fetchCourseData(); }} className="bg-blue-600 text-white px-6 py-2 rounded-md">
                       Back to Quizzes
                     </button>
                   </div>
@@ -487,84 +551,29 @@ const CourseLearn = () => {
                       <div>
                         <h2 className="text-xl font-bold">{currentQuiz.title}</h2>
                         <p className="text-gray-600 text-sm">{currentQuiz.description}</p>
-                        {attemptInfo && (
-                          <p className="text-sm text-blue-600 mt-1">
-                            Attempt {attemptInfo.attemptNumber} of {attemptInfo.maxAttempts}
-                          </p>
-                        )}
+                        {attemptInfo && <p className="text-sm text-blue-600 mt-1">Attempt {attemptInfo.attemptNumber} of {attemptInfo.maxAttempts}</p>}
                       </div>
-                      <button
-                        onClick={() => { setCurrentQuiz(null); setQuizResult(null); setQuizAnswers({}); setQuizQuestions([]); }}
-                        className="text-blue-600 hover:underline"
-                      >
-                        Back to Quizzes
-                      </button>
+                      <button onClick={() => { setCurrentQuiz(null); setQuizAnswers({}); setQuizQuestions([]); }} className="text-blue-600 hover:underline">Back to Quizzes</button>
                     </div>
                     <p className="text-sm text-gray-500 mb-6">Passing Score: {currentQuiz.passing_score}%</p>
                     
-                    {quizQuestions.map((question, idx) => (
-                      <div key={question.id} className="mb-6 p-4 border rounded-lg">
-                        <p className="font-semibold mb-3">Q{idx + 1}. {question.question}</p>
-                        <div className="space-y-2 ml-4">
-                          <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
-                            <input
-                              type="radio"
-                              name={`q${question.id}`}
-                              value="A"
-                              checked={quizAnswers[question.id] === 'A'}
-                              onChange={() => handleAnswerSelect(question.id, 'A')}
-                              className="w-4 h-4"
-                            />
-                            <span>A) {question.option_a}</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
-                            <input
-                              type="radio"
-                              name={`q${question.id}`}
-                              value="B"
-                              checked={quizAnswers[question.id] === 'B'}
-                              onChange={() => handleAnswerSelect(question.id, 'B')}
-                              className="w-4 h-4"
-                            />
-                            <span>B) {question.option_b}</span>
-                          </label>
-                          {question.option_c && (
-                            <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
-                              <input
-                                type="radio"
-                                name={`q${question.id}`}
-                                value="C"
-                                checked={quizAnswers[question.id] === 'C'}
-                                onChange={() => handleAnswerSelect(question.id, 'C')}
-                                className="w-4 h-4"
-                              />
-                              <span>C) {question.option_c}</span>
-                            </label>
-                          )}
-                          {question.option_d && (
-                            <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
-                              <input
-                                type="radio"
-                                name={`q${question.id}`}
-                                value="D"
-                                checked={quizAnswers[question.id] === 'D'}
-                                onChange={() => handleAnswerSelect(question.id, 'D')}
-                                className="w-4 h-4"
-                              />
-                              <span>D) {question.option_d}</span>
-                            </label>
-                          )}
+                    {quizQuestions.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500"><p>No questions available for this quiz.</p></div>
+                    ) : (
+                      quizQuestions.map((question, idx) => (
+                        <div key={question.id} className="mb-6 p-4 border rounded-lg">
+                          <p className="font-semibold mb-3">Q{idx + 1}. {question.question_text || question.question}</p>
+                          <p className="text-xs text-gray-400 mb-2">Points: {question.points}</p>
+                          {renderQuizQuestion(question, idx)}
                         </div>
-                        <p className="text-xs text-gray-400 mt-2">Points: {question.points}</p>
-                      </div>
-                    ))}
-                    <button
-                      onClick={handleQuizSubmit}
-                      disabled={submitting}
-                      className="w-full bg-green-600 text-white py-3 rounded-md hover:bg-green-700 disabled:bg-green-300 font-semibold"
-                    >
-                      {submitting ? 'Submitting...' : 'Submit Quiz'}
-                    </button>
+                      ))
+                    )}
+                    
+                    {quizQuestions.length > 0 && (
+                      <button onClick={handleQuizSubmit} disabled={submitting} className="w-full bg-green-600 text-white py-3 rounded-md hover:bg-green-700 disabled:bg-green-300 font-semibold">
+                        {submitting ? 'Submitting...' : 'Submit Quiz'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -577,44 +586,20 @@ const CourseLearn = () => {
                   const canAttempt = !isCompleted && attemptsLeft > 0;
                   
                   return (
-                    <div key={quiz.id} className={`bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow ${isCompleted ? 'border-l-4 border-green-500' : ''}`}>
+                    <div key={quiz.id} className={`bg-white rounded-lg shadow-md p-6 ${isCompleted ? 'border-l-4 border-green-500' : ''}`}>
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-semibold text-lg">{quiz.title}</h3>
-                        {isCompleted && (
-                          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                            <FaCheckCircle className="text-green-600" /> Completed
-                          </span>
-                        )}
+                        {isCompleted && <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"><FaCheckCircle className="inline mr-1" /> Completed</span>}
                       </div>
                       <p className="text-gray-600 text-sm mb-3">{quiz.description}</p>
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-sm text-gray-500">Questions: {quiz.question_count || 0}</span>
                         <span className="text-sm text-gray-500">Passing: {quiz.passing_score}%</span>
                       </div>
-                      
                       <div className="mb-4 text-sm">
-                        {isCompleted ? (
-                          <p className="text-green-600 flex items-center gap-1">
-                            <FaCheckCircle /> Quiz Completed - You passed!
-                          </p>
-                        ) : attemptsUsed > 0 ? (
-                          <p className="text-orange-600">
-                            Attempts: {attemptsUsed}/2 • {attemptsLeft} attempt(s) left
-                          </p>
-                        ) : (
-                          <p className="text-gray-500">2 attempts available</p>
-                        )}
+                        {isCompleted ? <p className="text-green-600">✓ Quiz Completed - You passed!</p> : attemptsUsed > 0 ? <p className="text-orange-600">Attempts: {attemptsUsed}/2 • {attemptsLeft} left</p> : <p className="text-gray-500">2 attempts available</p>}
                       </div>
-                      
-                      <button
-                        onClick={() => startQuiz(quiz)}
-                        disabled={!canAttempt}
-                        className={`w-full py-2 rounded-md transition-colors ${
-                          canAttempt 
-                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
+                      <button onClick={() => startQuiz(quiz)} disabled={!canAttempt} className={`w-full py-2 rounded-md ${canAttempt ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
                         {isCompleted ? 'Completed' : attemptsLeft === 0 ? 'No Attempts Left' : 'Start Quiz'}
                       </button>
                     </div>
@@ -626,6 +611,7 @@ const CourseLearn = () => {
         )}
         
         {activeTab === 'assignments' && (
+          // ... (keep your existing assignments code)
           <div>
             {assignments.length === 0 ? (
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
@@ -640,50 +626,24 @@ const CourseLearn = () => {
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h3 className="font-semibold text-lg">{assignment.title}</h3>
-                        {assignment.due_date && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            Due: {new Date(assignment.due_date).toLocaleDateString()}
-                          </p>
-                        )}
+                        {assignment.due_date && <p className="text-sm text-gray-500 mt-1">Due: {new Date(assignment.due_date).toLocaleDateString()}</p>}
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Total Points: {assignment.total_points}</p>
-                        {assignment.has_submitted > 0 && (
-                          <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                            {assignment.grade ? `Graded: ${assignment.grade}/${assignment.total_points}` : 'Submitted'}
-                          </span>
-                        )}
+                        {assignment.has_submitted > 0 && <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">{assignment.grade ? `Graded: ${assignment.grade}/${assignment.total_points}` : 'Submitted'}</span>}
                       </div>
                     </div>
-                    
                     <p className="text-gray-700 mb-4">{assignment.description}</p>
-                    
                     {assignment.has_submitted > 0 ? (
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <p className="text-sm text-gray-600">You have submitted this assignment.</p>
-                        {assignment.grade && (
-                          <p className="text-sm text-green-600 mt-1">
-                            Grade: {assignment.grade}/{assignment.total_points}
-                          </p>
-                        )}
-                        {assignment.feedback && (
-                          <p className="text-sm text-gray-600 mt-2">Feedback: {assignment.feedback}</p>
-                        )}
+                        {assignment.grade && <p className="text-sm text-green-600 mt-1">Grade: {assignment.grade}/{assignment.total_points}</p>}
+                        {assignment.feedback && <p className="text-sm text-gray-600 mt-2">Feedback: {assignment.feedback}</p>}
                       </div>
                     ) : (
                       <div className="mt-4">
-                        <textarea
-                          rows="4"
-                          value={submissionText}
-                          onChange={(e) => setSubmissionText(e.target.value)}
-                          placeholder="Write your submission here..."
-                          className="w-full border rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button
-                          onClick={() => handleSubmitAssignment(assignment.id)}
-                          disabled={submittingAssignment === assignment.id}
-                          className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300"
-                        >
+                        <textarea rows="4" value={submissionText} onChange={(e) => setSubmissionText(e.target.value)} placeholder="Write your submission here..." className="w-full border rounded-md p-3" />
+                        <button onClick={() => handleSubmitAssignment(assignment.id)} disabled={submittingAssignment === assignment.id} className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md">
                           {submittingAssignment === assignment.id ? 'Submitting...' : 'Submit Assignment'}
                         </button>
                       </div>
