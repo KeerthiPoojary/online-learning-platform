@@ -49,31 +49,40 @@ const Quizzes = () => {
   };
 
   const fetchQuizzes = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = https://online-learning-platform-99mm.onrender.com/api/quizzes/instructor
-      setQuizzes(response.data.quizzes || []);
-    } catch (error) {
-      console.error('Error fetching quizzes:', error);
-      toast.error('Failed to load quizzes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const token = localStorage.getItem('token');
+    const headers = { Authorization: `Bearer ${token}` };
 
-  const fetchQuizDetails = async (quizId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = https://online-learning-platform-99mm.onrender.com/api/quizzes/${quizId}
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching quiz details:', error);
-      return null;
-    }
-  };
+    const response = await axios.get(
+      'https://online-learning-platform-99mm.onrender.com/api/quizzes/instructor',
+      { headers }
+    );
 
+    setQuizzes(response.data.quizzes || []);
+  } catch (error) {
+    console.error('Error fetching quizzes:', error);
+    toast.error('Failed to load quizzes');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const fetchQuizDetails = async (quizId) => {
+  try {
+    const token = localStorage.getItem('token');
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const response = await axios.get(
+      `https://online-learning-platform-99mm.onrender.com/api/quizzes/${quizId}`,
+      { headers }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching quiz details:', error);
+    return null;
+  }
+};
   const addQuestion = () => {
     if (!currentQuestion.question) {
       toast.error('Please enter the question');

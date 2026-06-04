@@ -13,67 +13,107 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (token && storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        console.log('Auth initialized - User:', parsedUser.email, 'Role:', parsedUser.role);
+        console.log(
+          'Auth initialized - User:',
+          parsedUser.email,
+          'Role:',
+          parsedUser.role
+        );
       } catch (error) {
         console.error('Error parsing user:', error);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
     }
+
     setLoading(false);
   }, []);
 
-const response = await axios.post(
-  `${process.env.REACT_APP_API_URL}/api/auth/login`,
-  {
-    email,
-    password
-  }
-);
+  // LOGIN FUNCTION
+  const login = async (email, password) => {
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/auth/login`,
+        {
+          email,
+          password,
+        }
+      );
+
       const { token, user } = response.data;
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      axios.defaults.headers.common[
+        'Authorization'
+      ] = `Bearer ${token}`;
+
       setUser(user);
+
       toast.success('Login successful!');
-      return { success: true, role: user.role };
+
+      return {
+        success: true,
+        role: user.role,
+      };
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
-      return { success: false };
+
+      return {
+        success: false,
+      };
     }
   };
 
- const register = async (userData) => {
-  try {
-    const response = await axios.post(
-      `${process.env.REACT_APP_API_URL}/api/auth/register`,
-      userData
-    );
+  // REGISTER FUNCTION
+  const register = async (userData) => {
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/auth/register`,
+        userData
+      );
 
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setUser(user);
-    toast.success('Registration successful!');
-    return { success: true, role: user.role };
-  } catch (error) {
-    toast.error(error.response?.data?.message || 'Registration failed');
-    return { success: false };
-  }
-};
+      const { token, user } = response.data;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      axios.defaults.headers.common[
+        'Authorization'
+      ] = `Bearer ${token}`;
+
+      setUser(user);
+
+      toast.success('Registration successful!');
+
+      return {
+        success: true,
+        role: user.role,
+      };
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Registration failed');
+
+      return {
+        success: false,
+      };
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+
     delete axios.defaults.headers.common['Authorization'];
+
     setUser(null);
+
     toast.success('Logged out successfully');
   };
 
@@ -86,7 +126,7 @@ const response = await axios.post(
     isAuthenticated: !!user,
     isStudent: user?.role === 'student',
     isInstructor: user?.role === 'instructor',
-    isAdmin: user?.role === 'admin'
+    isAdmin: user?.role === 'admin',
   };
 
   return (
